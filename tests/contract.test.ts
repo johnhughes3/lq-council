@@ -28,6 +28,23 @@ describe("LQ contract", () => {
     expect(parsed.context).toEqual([{ agent: "alpha", response: "Prior response" }]);
   });
 
+  it("accepts the legacy approval-smoke shape with safe defaults", async () => {
+    const request = new Request("https://local/agents/scalia/debate", {
+      method: "POST",
+      body: JSON.stringify({
+        prompt: "Introduce yourself in two or three sentences.",
+        session_id: "approval-smoke",
+      }),
+    });
+
+    const parsed = await readLqRequest(request, 1000);
+    expect(parsed.prompt).toBe("Introduce yourself in two or three sentences.");
+    expect(parsed.session_id).toBe("approval-smoke");
+    expect(parsed.round).toBe(0);
+    expect(parsed.role).toBe("proponent");
+    expect(parsed.context).toEqual([]);
+  });
+
   it("rejects wrong methods, invalid JSON, incomplete requests, invalid roles, and oversized bodies", async () => {
     await expect(
       readLqRequest(new Request("https://local", { method: "GET" }), 100),
@@ -117,6 +134,60 @@ describe("LQ contract", () => {
         20,
       ),
     ).rejects.toMatchObject({ status: 413 });
+  });
+
+  it("attaches sanitized diagnostics to invalid request errors", async () => {
+    const request = new Request("https://local/agents/scalia/debate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        prompt: "",
+        session_id: "session-secret",
+        round: "zero",
+        role: "skeptic",
+        context: [],
+        hidden: "do not log this value",
+      }),
+    });
+
+    await expect(readLqRequest(request, 1000)).rejects.toMatchObject({
+      status: 400,
+      diagnostic: {
+        stage: "schema",
+        contentType: "application/json",
+        jsonType: "object",
+        jsonKeys: ["context", "hidden", "prompt", "role", "round", "session_id"],
+        fieldTypes: {
+          context: "array",
+          prompt: "string",
+          role: "string",
+          round: "string",
+          session_id: "string",
+        },
+        promptChars: 0,
+        contextItems: 0,
+        issues: expect.arrayContaining([
+          { path: "prompt", code: "too_small" },
+          { path: "round", code: "invalid_type" },
+        ]),
+      },
+    });
+
+    try {
+      await readLqRequest(
+        new Request("https://local/agents/scalia/debate", {
+          method: "POST",
+          body: JSON.stringify({ prompt: "", session_id: "session-secret" }),
+        }),
+        1000,
+      );
+    } catch (error) {
+      expect(error).toBeInstanceOf(RequestBodyError);
+      const diagnostic = (error as RequestBodyError).diagnostic;
+      expect(diagnostic.sessionIdHash).toMatch(/^[a-f0-9]{16}$/);
+      expect(JSON.stringify(diagnostic)).not.toContain("session-secret");
+      expect(JSON.stringify(diagnostic)).not.toContain("do not log this value");
+    }
   });
 
   it("formats LQ metadata and untrusted context into the model prompt", async () => {

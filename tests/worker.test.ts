@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { currentMonth, sharedInMemoryLedger } from "../src/cost/ledger";
 import app from "../src/index";
 import { sha256Hex } from "../src/security/auth";
@@ -7,6 +7,10 @@ import type { Env } from "../src/types";
 describe("worker", () => {
   beforeEach(() => {
     sharedInMemoryLedger.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("serves the LQ contract for an authorized agent", async () => {
@@ -43,6 +47,7 @@ describe("worker", () => {
   });
 
   it("rejects unauthorized requests before calling the model", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const run = vi.fn(async () => ({ response: "should not happen" }));
     const env = await testEnv("correct", run);
 
@@ -59,10 +64,117 @@ describe("worker", () => {
     );
 
     expect(response.status).toBe(401);
+    expect(warn).toHaveBeenCalledWith(
+      "lq_request_rejected",
+      expect.objectContaining({
+        request: expect.objectContaining({
+          path: "/agents/scalia/debate",
+          agentId: "scalia",
+          authorization: { present: true, scheme: "bearer" },
+        }),
+        status: 401,
+        error: "unauthorized",
+      }),
+    );
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("wrong");
     expect(run).not.toHaveBeenCalled();
   });
 
+  it("does not log malformed authorization header values", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const run = vi.fn(async () => ({ response: "should not happen" }));
+    const env = await testEnv("correct", run);
+
+    const response = await app.fetch(
+      new Request("https://local/agents/scalia/debate", {
+        method: "POST",
+        headers: {
+          authorization: "raw-token-value",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(lqBody({ prompt: "Hi", session_id: "s1" })),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(401);
+    expect(warn).toHaveBeenCalledWith(
+      "lq_request_rejected",
+      expect.objectContaining({
+        request: expect.objectContaining({
+          authorization: { present: true, scheme: "unknown" },
+        }),
+      }),
+    );
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("raw-token-value");
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("logs sanitized diagnostics for invalid LQ request bodies", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const run = vi.fn(async () => ({ response: "should not happen" }));
+    const env = await testEnv("token", run);
+
+    const response = await app.fetch(
+      new Request("https://local/agents/scalia/debate", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          session_id: "private-session-id",
+          round: "zero",
+          role: "skeptic",
+          context: [],
+          prompt: "",
+          secret_value: "raw prompt-adjacent data",
+        }),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "invalid_lq_request" });
+    expect(run).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(
+      "lq_request_rejected",
+      expect.objectContaining({
+        request: expect.objectContaining({
+          path: "/agents/scalia/debate",
+          agentId: "scalia",
+          authorization: { present: true, scheme: "bearer" },
+        }),
+        status: 400,
+        error: "invalid_lq_request",
+        diagnostic: expect.objectContaining({
+          stage: "schema",
+          jsonKeys: ["context", "prompt", "role", "round", "secret_value", "session_id"],
+          fieldTypes: expect.objectContaining({
+            context: "array",
+            prompt: "string",
+            role: "string",
+            round: "string",
+            session_id: "string",
+          }),
+          promptChars: 0,
+          contextItems: 0,
+          sessionIdHash: expect.stringMatching(/^[a-f0-9]{16}$/),
+          issues: expect.arrayContaining([
+            { path: "prompt", code: "too_small" },
+            { path: "round", code: "invalid_type" },
+          ]),
+        }),
+      }),
+    );
+    const logJson = JSON.stringify(warn.mock.calls);
+    expect(logJson).not.toContain("private-session-id");
+    expect(logJson).not.toContain("raw prompt-adjacent data");
+    expect(logJson).not.toContain("Bearer token");
+  });
+
   it("fails closed when the spend cap would be exceeded", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const run = vi.fn(async () => ({ response: "should not happen" }));
     const env = await testEnv("token", run, { MONTHLY_BUDGET_USD: "0.000001" });
 
@@ -82,10 +194,19 @@ describe("worker", () => {
     const body = (await response.json()) as { response: string; confidence: number };
     expect(body.response).toContain("monthly model budget");
     expect(body.confidence).toBe(0);
+    expect(warn).toHaveBeenCalledWith(
+      "lq_spend_cap_reached",
+      expect.objectContaining({
+        request: expect.objectContaining({ agentId: "scalia" }),
+        status: 200,
+        monthlyLimitUsd: 0.000001,
+      }),
+    );
     expect(run).not.toHaveBeenCalled();
   });
 
   it("fails closed in production when the durable spend ledger is not bound", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
     const run = vi.fn(async () => ({ response: "should not happen" }));
     const env = await testEnv("token", run, { ENVIRONMENT: "production" });
 
@@ -107,6 +228,7 @@ describe("worker", () => {
   });
 
   it("refunds cost reservations when the provider fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
     const run = vi.fn(async () => {
       throw new Error("provider down");
     });
@@ -131,6 +253,7 @@ describe("worker", () => {
   });
 
   it("refunds cost reservations when the provider times out", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
     const run = vi.fn(() => new Promise(() => undefined));
     const env = await testEnv("token", run, { MODEL_TIMEOUT_MS: "1" });
 

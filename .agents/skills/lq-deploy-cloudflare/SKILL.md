@@ -57,6 +57,20 @@ pnpm lqbot deploy --agent <slug> --headless
 pnpm lqbot smoke --url https://<worker>.workers.dev/agents/<slug>/debate --token <token>
 ```
 
+## Diagnose Requests
+
+Use Cloudflare observability first instead of adding an application request-log database:
+
+```bash
+pnpm exec wrangler tail lq-debate-agent
+```
+
+The Worker emits sanitized structured logs for `lq_request_rejected`, `lq_request_failed`, and
+`lq_spend_cap_reached`. These include request shape, JSON keys, field types, body hash, schema issue
+paths/codes, and route metadata, but never raw prompts, context, responses, bearer tokens, or raw
+session IDs. For persisted history, enable Workers Logs in the Cloudflare dashboard and query those
+event names with Query Builder.
+
 ## Safety
 
 - Do not commit `.lqbot/`, `.env`, `.dev.vars`, `.wrangler/`, or tokens.

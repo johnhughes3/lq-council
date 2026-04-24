@@ -13,6 +13,14 @@ import {
   currentMonth,
   MonthlySpendLedger,
 } from "./cost/ledger";
+import {
+  buildRequestLogContext,
+  logRequestFailed,
+  logRequestRejected,
+  logSpendCapReached,
+  type RequestLogContext,
+  withAgentId,
+} from "./observability/logging";
 import { buildDebateMessages } from "./prompt/build-system";
 import { runConfiguredModel } from "./providers";
 import { ProviderError } from "./providers/types";
@@ -64,11 +72,17 @@ async function handleAgentRequest(
   env: Env,
   requestedAgentId: string | undefined,
 ): Promise<Response> {
+  const requestId = crypto.randomUUID();
+  const startedAt = Date.now();
+  let logContext = buildRequestLogContext(request, requestId, requestedAgentId);
+
   try {
     const agent = getAgent(requestedAgentId, env);
+    logContext = withAgentId(logContext, agent.id);
     const tokenHash = getTokenHashForAgent(env, agent.id);
     const authorized = await isAuthorized(request.headers.get("authorization"), tokenHash);
     if (!authorized) {
+      logRequestRejected(logContext, 401, "unauthorized", elapsedMs(startedAt));
       return Response.json({ error: "unauthorized" }, { status: 401 });
     }
 
@@ -77,7 +91,6 @@ async function handleAgentRequest(
     const debatePrompt = formatDebatePrompt(body);
     const messages = buildDebateMessages(agent, debatePrompt, canary);
     const inputText = `${messages.system}\n\n${messages.user}`;
-    const requestId = crypto.randomUUID();
     const month = currentMonth();
     const reserveEstimate = estimateReservedCost({
       model: agent.model,
@@ -95,6 +108,12 @@ async function handleAgentRequest(
     });
 
     if (!reserve.ok) {
+      logSpendCapReached(
+        logContext,
+        elapsedMs(startedAt),
+        reserveEstimate.estimatedUsd,
+        agent.monthlyBudgetUsd,
+      );
       const response = buildLqResponse(
         body,
         "This debater is temporarily paused because its configured monthly model budget has been reached.",
@@ -134,32 +153,32 @@ async function handleAgentRequest(
       throw error;
     }
   } catch (error) {
-    return errorResponse(error);
+    return errorResponse(error, logContext, elapsedMs(startedAt));
   }
 }
 
-function errorResponse(error: unknown): Response {
+function errorResponse(error: unknown, logContext: RequestLogContext, elapsedMs: number): Response {
   if (error instanceof RequestBodyError) {
+    logRequestRejected(logContext, error.status, error.message, elapsedMs, error.diagnostic);
     return Response.json({ error: error.message }, { status: error.status });
   }
   if (error instanceof AgentNotFoundError) {
+    logRequestRejected(logContext, 404, "agent_not_found", elapsedMs);
     return Response.json({ error: "agent_not_found" }, { status: 404 });
   }
   if (error instanceof ProviderError) {
-    logRequestError(error);
+    logRequestFailed(logContext, 502, error, elapsedMs);
     return Response.json({ error: "provider_error" }, { status: 502 });
   }
   if (error instanceof CostLedgerUnavailableError) {
-    logRequestError(error);
+    logRequestFailed(logContext, 503, error, elapsedMs);
     return Response.json({ error: "cost_ledger_unavailable" }, { status: 503 });
   }
 
-  logRequestError(error);
+  logRequestFailed(logContext, 500, error, elapsedMs);
   return Response.json({ error: "internal_error" }, { status: 500 });
 }
 
-function logRequestError(error: unknown): void {
-  const name = error instanceof Error ? error.name : "UnknownError";
-  const message = error instanceof Error ? error.message : "Unknown request failure";
-  console.error("lq_request_failed", { name, message });
+function elapsedMs(startedAt: number): number {
+  return Date.now() - startedAt;
 }

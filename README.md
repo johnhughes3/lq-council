@@ -156,6 +156,31 @@ Cloudflare defaults are in [wrangler.jsonc](wrangler.jsonc):
 | `MAX_BODY_BYTES` | `100000` | Max incoming request body |
 | `MODEL_TIMEOUT_MS` | `285000` | Max model-call time before refunding the reservation |
 
+## Observability
+
+Use Cloudflare Worker Logs and Query Builder as the primary request diagnostic store. The Worker
+emits structured events for rejected requests and provider failures:
+
+```txt
+lq_request_rejected
+lq_request_failed
+lq_spend_cap_reached
+```
+
+These events include request ID, route path, debater slug, status, elapsed time, content type,
+content length, JSON keys, field types, prompt length, context length, body hash, and schema issue
+paths/codes where available. They deliberately omit the `Authorization` value and raw prompt,
+context, response, and session ID. The session ID is logged only as a short SHA-256 hash prefix.
+
+For a live deployment:
+
+```bash
+pnpm exec wrangler tail lq-debate-agent
+```
+
+For durable history, enable Workers Logs in the Cloudflare dashboard and query for
+`lq_request_rejected` or `lq_request_failed`.
+
 Provider options:
 
 | Provider | Model default | Required secrets |
@@ -204,7 +229,8 @@ The production ledger uses a Cloudflare Durable Object.
 - Secret-shaped output is blocked.
 - Optional MCP tooling is disabled by default.
 - Remote MCP, if enabled, must be HTTPS, read-only, allowlisted, timed out, and capped.
-- Full prompts and outputs are not logged by default.
+- Failed requests are logged through sanitized Cloudflare Worker telemetry.
+- Full prompts, context, outputs, bearer tokens, and raw session IDs are not logged.
 
 See [docs/ci-security.md](docs/ci-security.md) for CI and public-repo secret safety.
 

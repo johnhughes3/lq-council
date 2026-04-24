@@ -88,3 +88,30 @@ reserved spend before the Worker returns.
 When `ENVIRONMENT=production`, the Worker requires the `SPEND_LEDGER` Durable Object binding. If the
 binding is missing, requests fail before model inference instead of falling back to process-local
 memory.
+
+## Observability
+
+Cloudflare Worker Logs are the first-class diagnostic store. This repo does not create a separate
+KV request-log database by default because failed LQ submissions can contain untrusted debate
+content. Persisting raw payloads would increase privacy and exfiltration risk.
+
+The Worker logs sanitized structured events:
+
+- `lq_request_rejected` for auth, routing, size, JSON, and schema failures.
+- `lq_request_failed` for provider, ledger, or unexpected runtime failures.
+- `lq_spend_cap_reached` when the monthly budget blocks a model call.
+
+Request diagnostics include metadata and shape only: request ID, path, debater slug, status,
+elapsed time, content type, content length, JSON keys, field types, prompt length, context length,
+body SHA-256, short session-ID hash, and Zod issue paths/codes. They do not include bearer tokens,
+raw prompts, context, responses, raw session IDs, or provider secrets.
+
+Live logs:
+
+```bash
+pnpm exec wrangler tail lq-debate-agent
+```
+
+For persisted history, enable Workers Logs in the Cloudflare dashboard and use Query Builder to
+filter by `lq_request_rejected`, `lq_request_failed`, `request.agentId`, `status`, or
+`diagnostic.stage`.
