@@ -52,9 +52,21 @@ No `NPM_TOKEN` is required for the configured workflow.
    ```
 
 3. Commit and push.
-4. Create a GitHub Release.
-5. The `Publish npm Package` workflow publishes to npm.
+4. Create and publish a GitHub Release whose tag exactly matches the package version with a leading
+   `v`, for example:
+
+   ```bash
+   gh release create v0.1.1 --title "v0.1.1" --notes "..."
+   ```
+
+5. The `Publish npm Package` workflow verifies that the release tag matches `package.json`, verifies
+   that the npm version is not already published, runs `pnpm check`, and publishes to npm through
+   trusted publishing.
+
+Do not publish on every push to `main`. npm versions are immutable, so push-based publishing either
+fails on ordinary commits or encourages unsafe automatic version bumps.
 
 You can also run the workflow manually from GitHub Actions after the trusted publisher is configured.
-Manual runs are guarded to publish only from `main`; release-triggered runs publish from the release
-ref.
+Manual runs are a fallback path only: select the `main` branch and enter `publish` in the confirmation
+input. The preflight job fails before the protected `npm` environment is entered if the run is not
+from `main`, the confirmation text is wrong, or the package version is already published.

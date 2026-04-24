@@ -4,6 +4,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type "publish" to confirm npm publication from main.
+        required: true
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
@@ -11,19 +16,65 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   NODE_VERSION: "24"
 
 jobs:
+  preflight:
+    name: Publish Preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify release tag matches package version
+        if: github.event_name == 'release'
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_version="$(node -p "require('./package.json').version")"
+          expected_tag="v${package_version}"
+          actual_tag="${{ github.event.release.tag_name }}"
+          if [ "$actual_tag" != "$expected_tag" ]; then
+            echo "Release tag '$actual_tag' must match package.json version '$package_version' as '$expected_tag'." >&2
+            exit 1
+          fi
+      - name: Verify manual publish source
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Manual npm publishing is only allowed from main." >&2
+            exit 1
+          fi
+          if [ "${{ inputs.confirm }}" != "publish" ]; then
+            echo "Manual npm publishing requires confirm=publish." >&2
+            exit 1
+          fi
+      - name: Verify npm version is unpublished
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_name="$(node -p "require('./package.json').name")"
+          package_version="$(node -p "require('./package.json').version")"
+          if npm view "${package_name}@${package_version}" version >/dev/null 2>&1; then
+            echo "${package_name}@${package_version} is already published. Bump package.json before publishing." >&2
+            exit 1
+          fi
+
   publish:
     name: Build, Verify, and Publish
-    if: github.event_name == 'release' || github.ref == 'refs/heads/main'
+    needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: npm
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
