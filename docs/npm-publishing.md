@@ -3,7 +3,7 @@
 The package name is:
 
 ```txt
-@johnhughes3/lq-council
+@johnhughes/lq-council
 ```
 
 The publish workflow is:
@@ -20,8 +20,8 @@ npm publish --access public --provenance
 
 ## Setup Required On npm
 
-1. Log in to npmjs.com as the `johnhughes3` account or an account that controls the
-   `@johnhughes3` scope.
+1. Log in to npmjs.com as the `johnhughes` account or an account that controls the
+   `@johnhughes` scope.
 2. Create or claim the package/scope if npm requires a first manual publish.
 3. In the package settings, add a trusted publisher:
 
@@ -31,6 +31,10 @@ npm publish --access public --provenance
    Repository: lq-council
    Workflow filename: publish-npm.yml
    ```
+
+   The `Organization/user` value above is the GitHub repository owner. Keep it as
+   `johnhughes3` while the source repository lives at `github.com/johnhughes3/lq-council`;
+   the npm package scope is separately `@johnhughes`.
 
 4. Make sure the GitHub repository is public if you want npm provenance generated.
 5. In GitHub, create an environment named `npm`. Add required reviewers if you want a manual

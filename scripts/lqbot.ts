@@ -824,7 +824,7 @@ function projectNameFromTarget(target: string): string {
 async function writeProjectReadme(target: string, projectName: string): Promise<void> {
   const markdown = `# ${projectName}
 
-LQ Council debate bot scaffolded from \`@johnhughes3/lq-council\`.
+LQ Council debate bot scaffolded from \`@johnhughes/lq-council\`.
 
 ## Quick Start
 

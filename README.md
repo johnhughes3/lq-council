@@ -16,7 +16,7 @@ unsafe output, and returns the LQ Council debate response envelope.
 Recommended path:
 
 ```bash
-pnpm dlx @johnhughes3/lq-council init my-lq-bot
+pnpm dlx @johnhughes/lq-council init my-lq-bot
 cd my-lq-bot
 pnpm install
 pnpm lqbot test --agent scalia
@@ -260,7 +260,7 @@ saves them there automatically so registration tokens are not lost.
 Paste this into Claude Code, Codex, Cursor, or another coding agent:
 
 ```txt
-Set up an LQ Council debate bot using the npm package @johnhughes3/lq-council.
+Set up an LQ Council debate bot using the npm package @johnhughes/lq-council.
 
 Source repo for review: https://github.com/johnhughes3/lq-council
 
@@ -276,7 +276,7 @@ Requirements:
 - Give me the LQ Council URL and bearer token printed by deploy.
 
 Commands:
-1. pnpm dlx @johnhughes3/lq-council init my-lq-bot
+1. pnpm dlx @johnhughes/lq-council init my-lq-bot
 2. cd my-lq-bot
 3. pnpm install
 4. pnpm lqbot agent create <slug> --from blank
