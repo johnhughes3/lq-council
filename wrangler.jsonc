@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lq-debate-agent",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-04-20",
+  "compatibility_flags": ["nodejs_compat"],
+  "keep_vars": true,
+  "ai": {
+    "binding": "AI"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SPEND_LEDGER",
+        "class_name": "MonthlySpendLedger"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["MonthlySpendLedger"]
+    }
+  ],
+  "vars": {
+    "LQBOT_DEFAULT_AGENT": "scalia",
+    "LQBOT_PROVIDER": "cloudflare-workers-ai",
+    "MONTHLY_BUDGET_USD": "50",
+    "MAX_BODY_BYTES": "100000",
+    "MODEL_TIMEOUT_MS": "285000",
+    "ENVIRONMENT": "production"
+  }
+}

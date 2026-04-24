@@ -1,0 +1,134 @@
+name: AI Pull Request Reviews
+
+on:
+  pull_request:
+    types: [labeled]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  codex-review:
+    name: Codex Review
+    if: |
+      vars.ENABLE_AI_CI == 'true' &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'codex-review' &&
+      !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ai-review
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prepare Codex auth
+        id: prepare_codex
+        shell: bash
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON || '{}' }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CODEX_AUTH_JSON}" || "${CODEX_AUTH_JSON}" == "{}" || "${CODEX_AUTH_JSON}" =~ ^[[:space:]]*$ ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=CODEX_AUTH_JSON is missing." >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! jq -e . >/dev/null 2>&1 <<<"${CODEX_AUTH_JSON}"; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "skip_reason=CODEX_AUTH_JSON is not valid JSON." >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          umask 077
+          codex_home="${RUNNER_TEMP}/codex-home-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          mkdir -p "$codex_home"
+          printf '%s' "$CODEX_AUTH_JSON" > "$codex_home/auth.json"
+          printf '{"port":65535}\n' > "$codex_home/${GITHUB_RUN_ID}.json"
+          echo "::add-mask::${CODEX_AUTH_JSON}"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "codex_home=$codex_home" >> "$GITHUB_OUTPUT"
+      - name: Run Codex review
+        id: run_codex
+        if: steps.prepare_codex.outputs.skip != 'true'
+        continue-on-error: true
+        uses: openai/codex-action@v1
+        with:
+          codex-home: ${{ steps.prepare_codex.outputs.codex_home }}
+          openai-api-key: ""
+          codex-args: "--sandbox read-only"
+          prompt: |
+            Review PR #${{ github.event.pull_request.number }} for ${{ github.repository }}.
+
+            Focus on security, correctness, TypeScript strictness, tests, package publishing safety,
+            and Cloudflare Worker deployment issues. Do not modify files. Do not print secrets.
+            Use the checked-out repository and GitHub PR metadata only.
+      - name: Comment Codex feedback
+        if: always() && steps.run_codex.outputs['final-message'] != ''
+        uses: actions/github-script@v8
+        env:
+          CODEX_FINAL_MESSAGE: ${{ steps.run_codex.outputs['final-message'] }}
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: process.env.CODEX_FINAL_MESSAGE,
+            });
+
+  claude-review:
+    name: Claude Review
+    if: |
+      vars.ENABLE_AI_CI == 'true' &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'claude-review' &&
+      !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ai-review
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Claude PR Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          track_progress: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Perform a read-only code review. Focus on:
+            - public-repo secret safety
+            - GitHub Actions and npm publishing safety
+            - Cloudflare Worker security
+            - LQ webhook contract compatibility
+            - TypeScript strictness and tests
+
+            Do not modify files. Do not print secrets. Do not run deployment or publish commands.
+          claude_args: |
+            --max-turns 3000
+            --allowedTools "Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(git diff:*),Bash(git status:*)"

@@ -1,0 +1,96 @@
+{
+  "name": "@johnhughes3/lq-council",
+  "version": "0.1.0",
+  "private": false,
+  "packageManager": "pnpm@10.33.2",
+  "type": "module",
+  "description": "Secure Cloudflare Workers template for LQ Council debate agents.",
+  "license": "MIT",
+  "author": "John Hughes",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/johnhughes3/lq-council.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "bugs": {
+    "url": "https://github.com/johnhughes3/lq-council/issues"
+  },
+  "homepage": "https://github.com/johnhughes3/lq-council#readme",
+  "keywords": [
+    "legalquants",
+    "lq-council",
+    "cloudflare-workers",
+    "workers-ai",
+    "kimi",
+    "debate-agent",
+    "agent-template"
+  ],
+  "bin": {
+    "lqbot": "./dist/lqbot.js"
+  },
+  "files": [
+    "dist/",
+    "agents/",
+    ".agents/skills/",
+    "docs/",
+    ".github/dependabot.yml",
+    ".github/workflows/ci.yml",
+    ".github/workflows/codeql.yml",
+    ".claude/",
+    "src/",
+    "scripts/",
+    "tests/",
+    "AGENTS.md",
+    "README.md",
+    "LICENSE",
+    ".env.example",
+    ".gitignore",
+    "codecov.yml",
+    "wrangler.jsonc",
+    "biome.json",
+    "tsconfig.json",
+    "tsup.config.ts",
+    "vitest.config.ts"
+  ],
+  "scripts": {
+    "lqbot": "tsx scripts/lqbot.ts",
+    "generate:agents": "tsx scripts/lqbot.ts generate",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "tsup && node -e \"require('fs').chmodSync('dist/lqbot.js', 0o755)\"",
+    "format": "biome check . --write",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "test:contract": "vitest run tests/contract.test.ts",
+    "test:security": "vitest run tests/auth.test.ts tests/output-filter.test.ts tests/worker.test.ts tests/cost-ledger.test.ts tests/mcp.test.ts",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm pack:dry",
+    "pack:dry": "pnpm pack --dry-run",
+    "prepack": "pnpm build",
+    "security:audit": "pnpm audit --audit-level high",
+    "security:secrets": "go run github.com/zricethezav/gitleaks/v8@latest detect --source . --no-git --redact"
+  },
+  "dependencies": {
+    "hono": "^4.12.14",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.13",
+    "@cloudflare/workers-types": "^4.20260424.1",
+    "@types/node": "^25.6.0",
+    "@vitest/coverage-v8": "^3.2.4",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.84.1"
+  },
+  "engines": {
+    "node": ">=20.11.0",
+    "pnpm": ">=9.0.0"
+  }
+}

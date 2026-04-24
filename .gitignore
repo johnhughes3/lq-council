@@ -1,0 +1,14 @@
+.DS_Store
+node_modules/
+coverage/
+dist/
+.wrangler/
+.vercel/
+.turbo/
+.lqbot/
+.env
+.env.*
+.dev.vars
+!.env.example
+pnpm-debug.log*
+*.cpuprofile
