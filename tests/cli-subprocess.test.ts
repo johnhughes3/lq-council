@@ -67,6 +67,7 @@ describe("lqbot executable", () => {
     await runCli(["init", target, "--plain"]);
 
     await expect(stat(path.join(target, ".github", "workflows", "ci.yml"))).resolves.toBeTruthy();
+    await expect(stat(path.join(target, "lefthook.yml"))).resolves.toBeTruthy();
     await expect(
       stat(path.join(target, ".github", "workflows", "publish-npm.yml")),
     ).rejects.toMatchObject({ code: "ENOENT" });

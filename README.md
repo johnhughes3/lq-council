@@ -232,6 +232,23 @@ Human terminal output uses compact status panels when stdout is an interactive t
 `--plain`, `NO_TUI=1`, `NO_COLOR=1`, or `TERM=dumb` for simpler output. Non-interactive stdout
 continues to default to JSON.
 
+## Local Hooks
+
+The repo uses Lefthook for local guardrails. Lefthook installs automatically on `pnpm install` when
+the checkout uses standard `.git/hooks`. You can also run the hooks manually:
+
+```bash
+pnpm hooks:install
+pnpm hooks:pre-commit
+pnpm hooks:pre-push
+```
+
+Pre-commit verifies that `src/generated/agents.ts` matches the markdown personas, runs Biome, and
+runs the LQ contract tests. Pre-push runs the full local gate plus secret scanning. The hooks do not
+deploy or require Cloudflare credentials. If your machine uses a global Git `core.hooksPath`, the
+automatic installer quietly skips; run the hook scripts manually or install Lefthook into that
+global hook path only if that is how you intentionally manage hooks.
+
 `deploy --agent <slug>` preserves token hashes for existing debaters in the ignored
 `.lqbot/token-hashes.json` file. Use `deploy --all` when you want fresh registration tokens for
 every deployable debater at once. Add `--save-local` if you want plaintext token copies written to

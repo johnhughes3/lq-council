@@ -1,0 +1,15 @@
+pre-commit:
+  commands:
+    generated-agents-current:
+      run: pnpm generate:agents && git diff --exit-code src/generated/agents.ts
+    lint:
+      run: pnpm lint
+    contract:
+      run: pnpm test:contract
+
+pre-push:
+  commands:
+    check:
+      run: pnpm check
+    secrets:
+      run: pnpm security:secrets

@@ -149,6 +149,7 @@ async function initProject(ctx: CliContext, args: string[]): Promise<void> {
     "LICENSE",
     "biome.json",
     "codecov.yml",
+    "lefthook.yml",
     "tsconfig.json",
     "tsup.config.ts",
     "vitest.config.ts",
@@ -774,6 +775,10 @@ async function writeProjectPackageJson(target: string): Promise<string> {
       check: "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm pack:dry",
       "pack:dry": "pnpm pack --dry-run",
       prepack: "pnpm build",
+      "hooks:install": "lefthook install",
+      "hooks:pre-commit": "lefthook run pre-commit --force --no-auto-install",
+      "hooks:pre-push": "lefthook run pre-push --force --no-auto-install",
+      prepare: "node scripts/install-hooks.mjs",
       "security:audit": "pnpm audit --audit-level high",
       "security:secrets":
         "go run github.com/zricethezav/gitleaks/v8@latest detect --source . --no-git --redact",
@@ -787,6 +792,7 @@ async function writeProjectPackageJson(target: string): Promise<string> {
       "@cloudflare/workers-types": "^4.20260424.1",
       "@types/node": "^25.6.0",
       "@vitest/coverage-v8": "^3.2.4",
+      lefthook: "^2.1.6",
       tsup: "^8.5.1",
       tsx: "^4.21.0",
       typescript: "^5.9.3",
@@ -871,6 +877,23 @@ pnpm lqbot smoke --url https://<worker>.workers.dev/agents/scalia/debate --token
 \`\`\`
 
 Use \`--json\` for machine-readable output and \`--plain\`, \`NO_TUI=1\`, or \`NO_COLOR=1\` for simpler terminal output.
+
+## Local Hooks
+
+Lefthook installs automatically on \`pnpm install\` when the checkout uses standard \`.git/hooks\`.
+You can also run the hooks manually:
+
+\`\`\`bash
+pnpm hooks:install
+pnpm hooks:pre-commit
+pnpm hooks:pre-push
+\`\`\`
+
+Pre-commit verifies generated personas, linting, and contract tests. Pre-push runs the full local
+gate plus secret scanning. Hooks never deploy or require Cloudflare credentials. If your machine
+uses a global Git \`core.hooksPath\`, the automatic installer quietly skips; run these scripts
+manually or install Lefthook into that global hook path only if that is how you intentionally manage
+hooks.
 
 ## Security
 
