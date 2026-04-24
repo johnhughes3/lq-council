@@ -65,11 +65,12 @@ Use Cloudflare observability first instead of adding an application request-log 
 pnpm exec wrangler tail lq-debate-agent
 ```
 
-The Worker emits sanitized structured logs for `lq_request_rejected`, `lq_request_failed`, and
-`lq_spend_cap_reached`. These include request shape, JSON keys, field types, body hash, schema issue
-paths/codes, and route metadata, but never raw prompts, context, responses, bearer tokens, or raw
-session IDs. For persisted history, enable Workers Logs in the Cloudflare dashboard and query those
-event names with Query Builder.
+The Worker emits sanitized structured logs for `lq_request_completed`, `lq_request_rejected`,
+`lq_request_failed`, and `lq_spend_cap_reached`. These include request shape, JSON keys, field
+types, body hash, schema issue paths/codes, response keys, text length, and route metadata, but
+never raw prompts, context, responses, bearer tokens, or raw session IDs. Workers Logs persistence
+is enabled in `wrangler.jsonc` with full head sampling; use the Cloudflare dashboard Query Builder
+for retained logs.
 
 ## Safety
 

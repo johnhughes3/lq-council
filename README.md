@@ -75,35 +75,22 @@ Content-Type: application/json
 
 {
   "session_id": "string",
-  "round": 0,
-  "role": "proponent",
-  "context": [],
   "prompt": "string"
 }
 ```
 
-It returns:
+The LQ Council prompt is already fully formed and says which round it is. The Worker also tolerates
+the newer expanded shape with `round`, `role`, and `context`, but the public response contract stays
+the simple text envelope:
 
 ```json
 {
-  "response": "...",
-  "confidence": 70,
-  "challenge": {
-    "target_claim": "...",
-    "counter_evidence": "...",
-    "challenge_type": "factual"
-  },
-  "position_change": {
-    "changed": false,
-    "from": "No material change.",
-    "to": "Original position maintained.",
-    "reason": "No position change was declared in the response."
-  }
+  "text": "..."
 }
 ```
 
-`confidence` is always an integer from 0 to 100. The Worker includes `challenge` in round 2 and
-`position_change` in round 4. Extra incoming fields are tolerated and ignored.
+Round-specific structure, challenges, confidence, and position changes should be stated in prose
+when the LQ prompt asks for them. LQ extracts those fields from the returned text.
 
 ## Debaters
 
@@ -162,6 +149,7 @@ Use Cloudflare Worker Logs and Query Builder as the primary request diagnostic s
 emits structured events for rejected requests and provider failures:
 
 ```txt
+lq_request_completed
 lq_request_rejected
 lq_request_failed
 lq_spend_cap_reached
@@ -171,6 +159,9 @@ These events include request ID, route path, debater slug, status, elapsed time,
 content length, JSON keys, field types, prompt length, context length, body hash, and schema issue
 paths/codes where available. They deliberately omit the `Authorization` value and raw prompt,
 context, response, and session ID. The session ID is logged only as a short SHA-256 hash prefix.
+
+Workers Logs persistence is enabled in `wrangler.jsonc` with full head sampling because the expected
+traffic is low. Cloudflare currently retains Workers Logs for a limited window depending on plan.
 
 For a live deployment:
 
@@ -229,7 +220,7 @@ The production ledger uses a Cloudflare Durable Object.
 - Secret-shaped output is blocked.
 - Optional MCP tooling is disabled by default.
 - Remote MCP, if enabled, must be HTTPS, read-only, allowlisted, timed out, and capped.
-- Failed requests are logged through sanitized Cloudflare Worker telemetry.
+- Requests are logged through sanitized Cloudflare Worker telemetry.
 - Full prompts, context, outputs, bearer tokens, and raw session IDs are not logged.
 
 See [docs/ci-security.md](docs/ci-security.md) for CI and public-repo secret safety.

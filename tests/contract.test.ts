@@ -212,7 +212,7 @@ describe("LQ contract", () => {
     expect(prompt).toContain("Evaluate the evidence.");
   });
 
-  it("returns integer confidence and required structured round fields", async () => {
+  it("returns the canonical LQ text envelope", async () => {
     const base = {
       session_id: "s1",
       role: "skeptic" as const,
@@ -221,30 +221,40 @@ describe("LQ contract", () => {
     };
 
     expect(buildLqResponse({ ...base, round: 0 }, "Answer. Confidence: 87.9")).toEqual({
-      response: "Answer. Confidence: 87.9",
-      confidence: 87,
+      text: "Answer. Confidence: 87.9",
     });
 
-    const challenge = buildLqResponse(
+    expect(
+      buildLqResponse(
+        { ...base, round: 2 },
+        "That premise lacks empirical evidence. Confidence: 81",
+      ),
+    ).toEqual({
+      text: "That premise lacks empirical evidence. Confidence: 81",
+    });
+
+    expect(
+      buildLqResponse(
+        { ...base, round: 4 },
+        "I now think the narrower rule is better. Confidence: 64",
+      ),
+    ).toEqual({
+      text: "I now think the narrower rule is better. Confidence: 64",
+    });
+  });
+
+  it("keeps structured fields in prose for LQ extraction instead of JSON fields", () => {
+    const base = {
+      session_id: "s1",
+      role: "skeptic" as const,
+      context: [],
+      prompt: "Answer.",
+    };
+    const response = buildLqResponse(
       { ...base, round: 2 },
-      "That premise lacks empirical evidence. Confidence: 81",
+      "Challenge: the premise lacks empirical evidence. Confidence: 81",
     );
-    expect(challenge.confidence).toBe(81);
-    expect(Number.isInteger(challenge.confidence)).toBe(true);
-    expect(challenge.challenge).toMatchObject({
-      challenge_type: "factual",
-      target_claim: "That premise lacks empirical evidence.",
-    });
-
-    const positionChange = buildLqResponse(
-      { ...base, round: 4 },
-      "I now think the narrower rule is better. Confidence: 64",
-    );
-    expect(positionChange.confidence).toBe(64);
-    expect(positionChange.position_change).toMatchObject({
-      changed: true,
-      from: "See response text.",
-      to: "See response text.",
-    });
+    expect(Object.keys(response)).toEqual(["text"]);
+    expect(response.text).toContain("Challenge:");
   });
 });

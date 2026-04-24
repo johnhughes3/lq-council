@@ -13,6 +13,10 @@ Configure default runtime behavior in `wrangler.jsonc`:
     "MAX_BODY_BYTES": "100000",
     "MODEL_TIMEOUT_MS": "285000",
     "ENVIRONMENT": "production"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
   }
 }
 ```
@@ -97,6 +101,7 @@ content. Persisting raw payloads would increase privacy and exfiltration risk.
 
 The Worker logs sanitized structured events:
 
+- `lq_request_completed` for successful model responses, including response keys and text length.
 - `lq_request_rejected` for auth, routing, size, JSON, and schema failures.
 - `lq_request_failed` for provider, ledger, or unexpected runtime failures.
 - `lq_spend_cap_reached` when the monthly budget blocks a model call.
@@ -106,12 +111,26 @@ elapsed time, content type, content length, JSON keys, field types, prompt lengt
 body SHA-256, short session-ID hash, and Zod issue paths/codes. They do not include bearer tokens,
 raw prompts, context, responses, raw session IDs, or provider secrets.
 
+Workers Logs persistence is explicitly enabled in `wrangler.jsonc`:
+
+```jsonc
+{
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}
+```
+
+Full sampling is appropriate for the expected LQ workload. Lower `head_sampling_rate` if you adapt
+the template to high-volume traffic.
+
 Live logs:
 
 ```bash
 pnpm exec wrangler tail lq-debate-agent
 ```
 
-For persisted history, enable Workers Logs in the Cloudflare dashboard and use Query Builder to
-filter by `lq_request_rejected`, `lq_request_failed`, `request.agentId`, `status`, or
-`diagnostic.stage`.
+For persisted history, open Workers Logs in the Cloudflare dashboard and use Query Builder to filter
+by `lq_request_completed`, `lq_request_rejected`, `lq_request_failed`, `request.agentId`, `status`,
+or `diagnostic.stage`.

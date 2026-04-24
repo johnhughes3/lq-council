@@ -15,6 +15,7 @@ import {
 } from "./cost/ledger";
 import {
   buildRequestLogContext,
+  logRequestCompleted,
   logRequestFailed,
   logRequestRejected,
   logSpendCapReached,
@@ -51,7 +52,7 @@ app.get("/", (c) =>
   c.json({
     name: "lq-debate-agent",
     contract:
-      "POST /debate or /agents/:agentId/debate with { session_id, round, role, context, prompt }, returns { response, confidence, challenge?, position_change? }",
+      "POST /debate or /agents/:agentId/debate with { prompt, session_id }, returns { text }",
   }),
 );
 
@@ -117,7 +118,6 @@ async function handleAgentRequest(
       const response = buildLqResponse(
         body,
         "This debater is temporarily paused because its configured monthly model budget has been reached.",
-        { confidence: 0 },
       );
       return Response.json(response);
     }
@@ -142,11 +142,8 @@ async function handleAgentRequest(
         actualUsd: actualEstimate.estimatedUsd,
       });
 
-      const response = buildLqResponse(
-        body,
-        filtered.text,
-        filtered.blocked ? { confidence: 0 } : {},
-      );
+      const response = buildLqResponse(body, filtered.text);
+      logRequestCompleted(logContext, elapsedMs(startedAt), response.text.length);
       return Response.json(response);
     } catch (error) {
       await ledger.refund({ agentId: agent.id, requestId, month });

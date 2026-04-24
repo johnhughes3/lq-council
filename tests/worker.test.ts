@@ -7,6 +7,7 @@ import type { Env } from "../src/types";
 describe("worker", () => {
   beforeEach(() => {
     sharedInMemoryLedger.clear();
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -38,8 +39,7 @@ describe("worker", () => {
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(response.headers.get("x-frame-options")).toBe("DENY");
     await expect(response.json()).resolves.toEqual({
-      response: "A real debate answer.",
-      confidence: 70,
+      text: "A real debate answer.",
     });
     const status = await sharedInMemoryLedger.status("scalia", currentMonth(), 50);
     expect(status.committedUsd).toBe(0.000295);
@@ -191,9 +191,8 @@ describe("worker", () => {
     );
 
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { response: string; confidence: number };
-    expect(body.response).toContain("monthly model budget");
-    expect(body.confidence).toBe(0);
+    const body = (await response.json()) as { text: string };
+    expect(body.text).toContain("monthly model budget");
     expect(warn).toHaveBeenCalledWith(
       "lq_spend_cap_reached",
       expect.objectContaining({
@@ -298,12 +297,11 @@ describe("worker", () => {
     );
 
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { response: string; confidence: number };
-    expect(body.response).toContain("cannot return that response safely");
-    expect(body.confidence).toBe(0);
+    const body = (await response.json()) as { text: string };
+    expect(body.text).toContain("cannot return that response safely");
   });
 
-  it("supports the default /debate endpoint and emits required round-specific objects", async () => {
+  it("supports the default /debate endpoint and returns prose for LQ extraction", async () => {
     const env = await testEnv("token", async () => ({
       response: "The opposing premise is unsupported by the record. Confidence: 82",
       usage: { prompt_tokens: 100, completion_tokens: 50 },
@@ -331,16 +329,11 @@ describe("worker", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      response: "The opposing premise is unsupported by the record. Confidence: 82",
-      confidence: 82,
-      challenge: {
-        challenge_type: "factual",
-        target_claim: "The opposing premise is unsupported by the record.",
-      },
+      text: "The opposing premise is unsupported by the record. Confidence: 82",
     });
   });
 
-  it("includes position_change in round 4 responses", async () => {
+  it("keeps round 4 position changes inside the text response", async () => {
     const env = await testEnv("token", async () => ({
       response: "I now think the narrower position is right. Confidence: 61",
       usage: { prompt_tokens: 100, completion_tokens: 50 },
@@ -367,12 +360,7 @@ describe("worker", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      confidence: 61,
-      position_change: {
-        changed: true,
-        from: "See response text.",
-        to: "See response text.",
-      },
+      text: "I now think the narrower position is right. Confidence: 61",
     });
   });
 });

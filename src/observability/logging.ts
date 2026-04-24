@@ -91,6 +91,22 @@ export function logSpendCapReached(
   });
 }
 
+export function logRequestCompleted(
+  context: RequestLogContext,
+  elapsedMs: number,
+  textChars: number,
+): void {
+  console.log("lq_request_completed", {
+    request: context,
+    status: 200,
+    elapsedMs,
+    response: {
+      keys: ["text"],
+      textChars,
+    },
+  });
+}
+
 function authorizationScheme(authorization: string | null): string | null {
   if (!authorization) return null;
   const match = authorization.match(/^([A-Za-z][A-Za-z0-9._~-]*)\s+/);

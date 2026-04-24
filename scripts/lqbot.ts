@@ -391,20 +391,26 @@ async function smoke(ctx: CliContext): Promise<void> {
     },
     body: JSON.stringify({
       session_id: "lqbot-smoke",
-      round: 0,
-      role: "steelman",
-      context: [],
       prompt:
         "Introduce yourself in two or three sentences: who you are, what you bring to a debate, and what makes you distinct from a generic assistant.",
     }),
   });
 
-  const body = (await response.json().catch(() => null)) as { response?: unknown } | null;
-  const ok = response.ok && typeof body?.response === "string" && body.response.trim().length > 0;
+  const body = (await response.json().catch(() => null)) as {
+    text?: unknown;
+    response?: unknown;
+  } | null;
+  const text =
+    typeof body?.text === "string"
+      ? body.text
+      : typeof body?.response === "string"
+        ? body.response
+        : null;
+  const ok = response.ok && typeof text === "string" && text.trim().length > 0;
   output(ctx, {
     ok,
     status: response.status,
-    text: typeof body?.response === "string" ? body.response : null,
+    text,
   });
   if (!ok) process.exitCode = 1;
 }
