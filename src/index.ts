@@ -146,11 +146,20 @@ function errorResponse(error: unknown): Response {
     return Response.json({ error: "agent_not_found" }, { status: 404 });
   }
   if (error instanceof ProviderError) {
+    logRequestError(error);
     return Response.json({ error: "provider_error" }, { status: 502 });
   }
   if (error instanceof CostLedgerUnavailableError) {
+    logRequestError(error);
     return Response.json({ error: "cost_ledger_unavailable" }, { status: 503 });
   }
 
+  logRequestError(error);
   return Response.json({ error: "internal_error" }, { status: 500 });
+}
+
+function logRequestError(error: unknown): void {
+  const name = error instanceof Error ? error.name : "UnknownError";
+  const message = error instanceof Error ? error.message : "Unknown request failure";
+  console.error("lq_request_failed", { name, message });
 }

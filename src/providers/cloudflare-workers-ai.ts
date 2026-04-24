@@ -25,10 +25,10 @@ export async function runCloudflareWorkersAi(request: ModelRequest): Promise<Mod
     throw new ProviderError("Cloudflare Workers AI binding is not configured");
   }
 
-  const response = (await withTimeout(
-    request.env.AI.run(
-      request.model,
-      {
+  let response: WorkersAiResponse;
+  try {
+    response = (await withTimeout(
+      request.env.AI.run(request.model, {
         messages: [
           { role: "system", content: request.messages.system },
           { role: "user", content: request.messages.user },
@@ -37,16 +37,14 @@ export async function runCloudflareWorkersAi(request: ModelRequest): Promise<Mod
         chat_template_kwargs: {
           thinking: false,
         },
-      },
-      {
-        gateway: {
-          id: "lq-debate-agent",
-          skipCache: false,
-        },
-      },
-    ),
-    request.timeoutMs,
-  )) as WorkersAiResponse;
+      }),
+      request.timeoutMs,
+    )) as WorkersAiResponse;
+  } catch (error) {
+    if (error instanceof ProviderError) throw error;
+    const message = error instanceof Error ? error.message : "Cloudflare Workers AI request failed";
+    throw new ProviderError(message);
+  }
 
   const text = extractText(response);
   if (!text) {

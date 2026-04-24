@@ -124,7 +124,7 @@ describe("worker", () => {
       env,
     );
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(502);
     const status = await sharedInMemoryLedger.status("scalia", currentMonth(), 50);
     expect(status.committedUsd).toBe(0);
     expect(status.reservedUsd).toBe(0);
