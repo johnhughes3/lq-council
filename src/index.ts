@@ -15,6 +15,7 @@ import {
 } from "./cost/ledger";
 import {
   buildRequestLogContext,
+  logContextBudgetExceeded,
   logRequestCompleted,
   logRequestFailed,
   logRequestRejected,
@@ -24,6 +25,7 @@ import {
 } from "./observability/logging";
 import { buildDebateMessages } from "./prompt/build-system";
 import { runConfiguredModel } from "./providers";
+import { checkContextBudget } from "./providers/context-budget";
 import { ProviderError } from "./providers/types";
 import { getTokenHashForAgent, isAuthorized } from "./security/auth";
 import { createCanary } from "./security/canary";
@@ -92,6 +94,16 @@ async function handleAgentRequest(
     const debatePrompt = formatDebatePrompt(body);
     const messages = buildDebateMessages(agent, debatePrompt, canary);
     const inputText = `${messages.system}\n\n${messages.user}`;
+    const contextBudget = checkContextBudget(env, agent, inputText);
+    if (!contextBudget.ok) {
+      logContextBudgetExceeded(logContext, elapsedMs(startedAt), contextBudget);
+      const response = buildLqResponse(
+        body,
+        "I cannot answer this round safely because the received debate prompt and persona exceed my configured context budget. I am preserving the round by returning this explicit limitation rather than silently omitting material.",
+      );
+      return Response.json(response);
+    }
+
     const month = currentMonth();
     const reserveEstimate = estimateReservedCost({
       model: agent.model,
@@ -164,8 +176,8 @@ function errorResponse(error: unknown, logContext: RequestLogContext, elapsedMs:
     return Response.json({ error: "agent_not_found" }, { status: 404 });
   }
   if (error instanceof ProviderError) {
-    logRequestFailed(logContext, 502, error, elapsedMs);
-    return Response.json({ error: "provider_error" }, { status: 502 });
+    logRequestFailed(logContext, 200, error, elapsedMs);
+    return Response.json({ text: providerFallbackText(error) });
   }
   if (error instanceof CostLedgerUnavailableError) {
     logRequestFailed(logContext, 503, error, elapsedMs);
@@ -174,6 +186,14 @@ function errorResponse(error: unknown, logContext: RequestLogContext, elapsedMs:
 
   logRequestFailed(logContext, 500, error, elapsedMs);
   return Response.json({ error: "internal_error" }, { status: 500 });
+}
+
+function providerFallbackText(error: ProviderError): string {
+  if (error.status === 504) {
+    return "I could not complete the model call before my safety deadline for this round. I am returning this explicit timeout notice so the debate transcript remains well-formed rather than failing the LQ request.";
+  }
+
+  return "I could not complete the upstream model call for this round. I am returning this explicit provider-failure notice so the debate transcript remains well-formed rather than failing the LQ request.";
 }
 
 function elapsedMs(startedAt: number): number {

@@ -65,12 +65,13 @@ Use Cloudflare observability first instead of adding an application request-log 
 pnpm exec wrangler tail lq-debate-agent
 ```
 
-The Worker emits sanitized structured logs for `lq_request_completed`, `lq_request_rejected`,
-`lq_request_failed`, and `lq_spend_cap_reached`. These include request shape, JSON keys, field
-types, body hash, schema issue paths/codes, response keys, text length, and route metadata, but
-never raw prompts, context, responses, bearer tokens, or raw session IDs. Workers Logs persistence
-is enabled in `wrangler.jsonc` with full head sampling; use the Cloudflare dashboard Query Builder
-for retained logs.
+The Worker emits sanitized structured logs for `lq_request_completed`,
+`lq_context_budget_exceeded`, `lq_request_rejected`, `lq_request_failed`, and
+`lq_spend_cap_reached`. These include request shape, JSON keys, field types, body hash, schema issue
+paths/codes, response keys, text length, context-budget numbers, and route metadata, but never raw
+prompts, context, responses, bearer tokens, or raw session IDs. Workers Logs persistence is enabled
+in `wrangler.jsonc` with full head sampling; use the Cloudflare dashboard Query Builder for retained
+logs.
 
 ## Safety
 
@@ -79,4 +80,6 @@ for retained logs.
   provider API keys into Wrangler's prompt or pipe through stdin; do not pass them with `--value`.
 - Default model: `@cf/moonshotai/kimi-k2.6`.
 - Default monthly budget: `$50` per debater. Change `monthlyBudgetUsd` in the debater config.
-- Default model timeout: `MODEL_TIMEOUT_MS=285000`; timed-out requests refund local reservations.
+- Default context guard: `MODEL_CONTEXT_TOKENS=262144`.
+- Default model timeout: `MODEL_TIMEOUT_MS=270000`; timed-out requests refund local reservations and
+  return a valid LQ `{ text }` fallback.

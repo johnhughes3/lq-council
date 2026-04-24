@@ -1,4 +1,5 @@
 import type { RequestBodyDiagnostic } from "../contract/lq";
+import type { ContextBudgetCheck } from "../providers/context-budget";
 
 export interface RequestLogContext {
   requestId: string;
@@ -88,6 +89,19 @@ export function logSpendCapReached(
     elapsedMs,
     estimatedUsd,
     monthlyLimitUsd,
+  });
+}
+
+export function logContextBudgetExceeded(
+  context: RequestLogContext,
+  elapsedMs: number,
+  budget: ContextBudgetCheck,
+): void {
+  console.warn("lq_context_budget_exceeded", {
+    request: context,
+    status: 200,
+    elapsedMs,
+    budget,
   });
 }
 

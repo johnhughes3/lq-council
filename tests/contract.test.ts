@@ -45,7 +45,48 @@ describe("LQ contract", () => {
     expect(parsed.context).toEqual([]);
   });
 
-  it("rejects wrong methods, invalid JSON, incomplete requests, invalid roles, and oversized bodies", async () => {
+  it("normalizes odd but parseable LQ fields", async () => {
+    const parsed = await readLqRequest(
+      new Request("https://local/agents/scalia/debate", {
+        method: "POST",
+        body: JSON.stringify({
+          prompt: { instruction: "Answer the prompt." },
+          session_id: 42,
+          round: "2",
+          role: "Devil's Advocate",
+          context: { agent: "alpha", response: "Prior response" },
+        }),
+      }),
+      1000,
+    );
+
+    expect(parsed.prompt).toBe('{"instruction":"Answer the prompt."}');
+    expect(parsed.session_id).toBe("42");
+    expect(parsed.round).toBe(2);
+    expect(parsed.role).toBe("devils_advocate");
+    expect(parsed.context).toEqual([{ agent: "alpha", response: "Prior response" }]);
+
+    const fallback = await readLqRequest(
+      new Request("https://local/agents/scalia/debate", {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: "",
+          round: "not-a-round",
+          role: "unknown-role",
+          prompt: "",
+        }),
+      }),
+      1000,
+    );
+
+    expect(fallback.session_id).toBe("unknown-session");
+    expect(fallback.round).toBe(0);
+    expect(fallback.role).toBe("proponent");
+    expect(fallback.context).toEqual([]);
+    expect(fallback.prompt).toContain("No prompt text was provided");
+  });
+
+  it("rejects wrong methods, invalid JSON, oversized prompts, and oversized bodies", async () => {
     await expect(
       readLqRequest(new Request("https://local", { method: "GET" }), 100),
     ).rejects.toThrow(RequestBodyError);
@@ -59,46 +100,14 @@ describe("LQ contract", () => {
         new Request("https://local", {
           method: "POST",
           body: JSON.stringify({
-            prompt: "",
+            prompt: "x".repeat(100_001),
             session_id: "x",
             round: 0,
             role: "skeptic",
             context: [],
           }),
         }),
-        100,
-      ),
-    ).rejects.toMatchObject({ status: 400 });
-
-    await expect(
-      readLqRequest(
-        new Request("https://local", {
-          method: "POST",
-          body: JSON.stringify({
-            prompt: "x",
-            session_id: "x",
-            round: 5,
-            role: "skeptic",
-            context: [],
-          }),
-        }),
-        200,
-      ),
-    ).rejects.toMatchObject({ status: 400 });
-
-    await expect(
-      readLqRequest(
-        new Request("https://local", {
-          method: "POST",
-          body: JSON.stringify({
-            prompt: "x",
-            session_id: "x",
-            round: 0,
-            role: "Skeptic",
-            context: [],
-          }),
-        }),
-        200,
+        200_000,
       ),
     ).rejects.toMatchObject({ status: 400 });
 
@@ -141,16 +150,16 @@ describe("LQ contract", () => {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        prompt: "",
+        prompt: "x".repeat(100_001),
         session_id: "session-secret",
-        round: "zero",
+        round: 0,
         role: "skeptic",
         context: [],
         hidden: "do not log this value",
       }),
     });
 
-    await expect(readLqRequest(request, 1000)).rejects.toMatchObject({
+    await expect(readLqRequest(request, 200_000)).rejects.toMatchObject({
       status: 400,
       diagnostic: {
         stage: "schema",
@@ -161,15 +170,12 @@ describe("LQ contract", () => {
           context: "array",
           prompt: "string",
           role: "string",
-          round: "string",
+          round: "number",
           session_id: "string",
         },
-        promptChars: 0,
+        promptChars: 100_001,
         contextItems: 0,
-        issues: expect.arrayContaining([
-          { path: "prompt", code: "too_small" },
-          { path: "round", code: "invalid_type" },
-        ]),
+        issues: expect.arrayContaining([{ path: "prompt", code: "too_big" }]),
       },
     });
 
@@ -177,9 +183,9 @@ describe("LQ contract", () => {
       await readLqRequest(
         new Request("https://local/agents/scalia/debate", {
           method: "POST",
-          body: JSON.stringify({ prompt: "", session_id: "session-secret" }),
+          body: JSON.stringify({ prompt: "x".repeat(100_001), session_id: "session-secret" }),
         }),
-        1000,
+        200_000,
       );
     } catch (error) {
       expect(error).toBeInstanceOf(RequestBodyError);

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runConfiguredModel } from "../src/providers";
 import { runCloudflareWorkersAi } from "../src/providers/cloudflare-workers-ai";
+import { checkContextBudget, modelContextTokens } from "../src/providers/context-budget";
 import { runOpenAiCompatible } from "../src/providers/openai-compatible";
 import { runVercelAiGateway } from "../src/providers/vercel-ai-gateway";
 import type { Env } from "../src/types";
@@ -381,5 +382,29 @@ describe("providers", () => {
         messages,
       ),
     ).resolves.toMatchObject({ text: "vercel configured" });
+  });
+
+  it("guards model context budgets conservatively", () => {
+    const agent = {
+      id: "x",
+      displayName: "X",
+      provider: "cloudflare-workers-ai" as const,
+      model: "@cf/moonshotai/kimi-k2.6",
+      maxOutputTokens: 100,
+      monthlyBudgetUsd: 1,
+      files: [],
+      security: { maxBodyBytes: 1000, allowRemoteMcp: false, maxToolCallsPerRound: 0 },
+    };
+
+    expect(modelContextTokens({ MODEL_CONTEXT_TOKENS: "8192" })).toBe(8192);
+    expect(modelContextTokens({ MODEL_CONTEXT_TOKENS: "invalid" })).toBe(262_144);
+
+    expect(checkContextBudget({ MODEL_CONTEXT_TOKENS: "8192" }, agent, "short").ok).toBe(true);
+    expect(checkContextBudget({ MODEL_CONTEXT_TOKENS: "4096" }, agent, "x".repeat(1000))).toEqual(
+      expect.objectContaining({
+        ok: false,
+        availableInputTokens: 0,
+      }),
+    );
   });
 });

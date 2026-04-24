@@ -113,7 +113,7 @@ describe("worker", () => {
   it("logs sanitized diagnostics for invalid LQ request bodies", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const run = vi.fn(async () => ({ response: "should not happen" }));
-    const env = await testEnv("token", run);
+    const env = await testEnv("token", run, { MAX_BODY_BYTES: "200000" });
 
     const response = await app.fetch(
       new Request("https://local/agents/scalia/debate", {
@@ -124,10 +124,10 @@ describe("worker", () => {
         },
         body: JSON.stringify({
           session_id: "private-session-id",
-          round: "zero",
+          round: 0,
           role: "skeptic",
           context: [],
-          prompt: "",
+          prompt: "x".repeat(100_001),
           secret_value: "raw prompt-adjacent data",
         }),
       }),
@@ -154,16 +154,13 @@ describe("worker", () => {
             context: "array",
             prompt: "string",
             role: "string",
-            round: "string",
+            round: "number",
             session_id: "string",
           }),
-          promptChars: 0,
+          promptChars: 100_001,
           contextItems: 0,
           sessionIdHash: expect.stringMatching(/^[a-f0-9]{16}$/),
-          issues: expect.arrayContaining([
-            { path: "prompt", code: "too_small" },
-            { path: "round", code: "invalid_type" },
-          ]),
+          issues: expect.arrayContaining([{ path: "prompt", code: "too_big" }]),
         }),
       }),
     );
@@ -202,6 +199,43 @@ describe("worker", () => {
       }),
     );
     expect(run).not.toHaveBeenCalled();
+  });
+
+  it("returns a valid LQ text envelope when the prompt exceeds the model context budget", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const run = vi.fn(async () => ({ response: "should not happen" }));
+    const env = await testEnv("token", run, { MODEL_CONTEXT_TOKENS: "4096" });
+
+    const response = await app.fetch(
+      new Request("https://local/agents/scalia/debate", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(lqBody({ prompt: "Hi", session_id: "s1" })),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { text: string };
+    expect(body.text).toContain("configured context budget");
+    expect(warn).toHaveBeenCalledWith(
+      "lq_context_budget_exceeded",
+      expect.objectContaining({
+        request: expect.objectContaining({ agentId: "scalia" }),
+        status: 200,
+        budget: expect.objectContaining({
+          ok: false,
+          contextTokens: 4096,
+        }),
+      }),
+    );
+    expect(run).not.toHaveBeenCalled();
+    const status = await sharedInMemoryLedger.status("scalia", currentMonth(), 50);
+    expect(status.committedUsd).toBe(0);
+    expect(status.reservedUsd).toBe(0);
   });
 
   it("fails closed in production when the durable spend ledger is not bound", async () => {
@@ -245,7 +279,10 @@ describe("worker", () => {
       env,
     );
 
-    expect(response.status).toBe(502);
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      text: expect.stringContaining("provider-failure notice"),
+    });
     const status = await sharedInMemoryLedger.status("scalia", currentMonth(), 50);
     expect(status.committedUsd).toBe(0);
     expect(status.reservedUsd).toBe(0);
@@ -268,8 +305,10 @@ describe("worker", () => {
       env,
     );
 
-    expect(response.status).toBe(502);
-    await expect(response.json()).resolves.toEqual({ error: "provider_error" });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      text: expect.stringContaining("timeout notice"),
+    });
     const status = await sharedInMemoryLedger.status("scalia", currentMonth(), 50);
     expect(status.committedUsd).toBe(0);
     expect(status.reservedUsd).toBe(0);

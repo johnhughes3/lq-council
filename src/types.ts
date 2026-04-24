@@ -31,6 +31,7 @@ export interface Env {
   LQBOT_PROVIDER?: ProviderName;
   MONTHLY_BUDGET_USD?: string;
   MAX_BODY_BYTES?: string;
+  MODEL_CONTEXT_TOKENS?: string;
   MODEL_TIMEOUT_MS?: string;
   ENVIRONMENT?: string;
   OPENAI_BASE_URL?: string;

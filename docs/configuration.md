@@ -11,7 +11,8 @@ Configure default runtime behavior in `wrangler.jsonc`:
     "LQBOT_PROVIDER": "cloudflare-workers-ai",
     "MONTHLY_BUDGET_USD": "50",
     "MAX_BODY_BYTES": "100000",
-    "MODEL_TIMEOUT_MS": "285000",
+    "MODEL_CONTEXT_TOKENS": "262144",
+    "MODEL_TIMEOUT_MS": "270000",
     "ENVIRONMENT": "production"
   },
   "observability": {
@@ -85,9 +86,13 @@ OPENAI_MODEL=kimi-k2.6
 The Worker reserves estimated spend before model inference. If the cap would be exceeded, no model
 call is made. Successful calls commit actual provider token usage when available.
 
-`MODEL_TIMEOUT_MS` defaults to `285000`, leaving a small margin under LQ Council's 300-second
-round timeout. Timed-out model calls throw a provider error and refund the
-reserved spend before the Worker returns.
+`MODEL_CONTEXT_TOKENS` defaults to `262144`. The Worker conservatively estimates prompt size before
+model inference and returns a normal LQ `{ text }` response instead of calling the provider when the
+persona, prompt, requested output, and safety margin would exceed the configured context window.
+
+`MODEL_TIMEOUT_MS` defaults to `270000`, leaving a 30-second margin under LQ Council's 300-second
+round timeout. Values above `285000` are ignored. Timed-out model calls refund the reserved spend
+and return a normal LQ `{ text }` response so the round remains well-formed.
 
 When `ENVIRONMENT=production`, the Worker requires the `SPEND_LEDGER` Durable Object binding. If the
 binding is missing, requests fail before model inference instead of falling back to process-local
@@ -102,8 +107,10 @@ content. Persisting raw payloads would increase privacy and exfiltration risk.
 The Worker logs sanitized structured events:
 
 - `lq_request_completed` for successful model responses, including response keys and text length.
+- `lq_context_budget_exceeded` when the context budget blocks a model call.
 - `lq_request_rejected` for auth, routing, size, JSON, and schema failures.
-- `lq_request_failed` for provider, ledger, or unexpected runtime failures.
+- `lq_request_failed` for provider, ledger, or unexpected runtime failures. Provider failures are
+  returned to LQ as `{ text }`; ledger and unexpected failures remain HTTP errors.
 - `lq_spend_cap_reached` when the monthly budget blocks a model call.
 
 Request diagnostics include metadata and shape only: request ID, path, debater slug, status,
@@ -132,5 +139,5 @@ pnpm exec wrangler tail lq-debate-agent
 ```
 
 For persisted history, open Workers Logs in the Cloudflare dashboard and use Query Builder to filter
-by `lq_request_completed`, `lq_request_rejected`, `lq_request_failed`, `request.agentId`, `status`,
-or `diagnostic.stage`.
+by `lq_request_completed`, `lq_context_budget_exceeded`, `lq_request_rejected`,
+`lq_request_failed`, `request.agentId`, `status`, or `diagnostic.stage`.

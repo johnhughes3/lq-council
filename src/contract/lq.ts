@@ -9,13 +9,78 @@ export const LqRoleSchema = z.enum([
   "steelman",
 ]);
 
+const MISSING_PROMPT_FALLBACK =
+  "No prompt text was provided. Briefly state that you cannot address a specific debate prompt, then identify your debate posture.";
+
+const LqRoundSchema = z
+  .preprocess((value) => {
+    if (typeof value === "string" && /^-?\d+$/.test(value.trim())) {
+      return Number(value.trim());
+    }
+    return value;
+  }, z.number().int().min(0).max(4))
+  .catch(0);
+
+const LenientLqRoleSchema = z
+  .preprocess((value) => {
+    if (typeof value !== "string") return value;
+    const normalized = value
+      .trim()
+      .toLowerCase()
+      .replace(/['’]/g, "")
+      .replace(/[\s-]+/g, "_");
+    if (normalized === "devil_advocate") return "devils_advocate";
+    return normalized;
+  }, LqRoleSchema)
+  .catch("proponent");
+
+const LqSessionIdSchema = z.preprocess(
+  (value) => {
+    if (value === undefined || value === null) return "unknown-session";
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+    return "unknown-session";
+  },
+  z.string().transform((value) => {
+    const trimmed = value.trim();
+    return (trimmed.length > 0 ? trimmed : "unknown-session").slice(0, 256);
+  }),
+);
+
+const LqContextSchema = z
+  .preprocess((value) => {
+    if (value === undefined || value === null) return [];
+    return Array.isArray(value) ? value : [value];
+  }, z.array(z.unknown()))
+  .default([]);
+
+const LqPromptSchema = z.preprocess(
+  (value) => {
+    if (typeof value === "string") return value;
+    if (value === undefined || value === null) return "";
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  },
+  z
+    .string()
+    .max(100_000)
+    .transform((value) => {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : MISSING_PROMPT_FALLBACK;
+    }),
+);
+
 export const LqRequestSchema = z
   .object({
-    session_id: z.string().trim().min(1).max(256),
-    round: z.number().int().min(0).max(4).default(0),
-    role: LqRoleSchema.default("proponent"),
-    context: z.array(z.unknown()).default([]),
-    prompt: z.string().trim().min(1).max(100_000),
+    session_id: LqSessionIdSchema.default("unknown-session"),
+    round: LqRoundSchema.default(0),
+    role: LenientLqRoleSchema.default("proponent"),
+    context: LqContextSchema,
+    prompt: LqPromptSchema,
   })
   .passthrough();
 

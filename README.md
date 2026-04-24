@@ -141,15 +141,17 @@ Cloudflare defaults are in [wrangler.jsonc](wrangler.jsonc):
 | `LQBOT_PROVIDER` | `cloudflare-workers-ai` | Provider adapter |
 | `MONTHLY_BUDGET_USD` | `50` | Monthly spend cap per debater |
 | `MAX_BODY_BYTES` | `100000` | Max incoming request body |
-| `MODEL_TIMEOUT_MS` | `285000` | Max model-call time before refunding the reservation |
+| `MODEL_CONTEXT_TOKENS` | `262144` | Conservative model context-window guard |
+| `MODEL_TIMEOUT_MS` | `270000` | Max model-call time before refunding the reservation |
 
 ## Observability
 
 Use Cloudflare Worker Logs and Query Builder as the primary request diagnostic store. The Worker
-emits structured events for rejected requests and provider failures:
+emits structured events for accepted, rejected, budget-blocked, and provider-fallback requests:
 
 ```txt
 lq_request_completed
+lq_context_budget_exceeded
 lq_request_rejected
 lq_request_failed
 lq_spend_cap_reached
@@ -170,7 +172,8 @@ pnpm exec wrangler tail lq-debate-agent
 ```
 
 For durable history, enable Workers Logs in the Cloudflare dashboard and query for
-`lq_request_rejected` or `lq_request_failed`.
+`lq_request_completed`, `lq_context_budget_exceeded`, `lq_request_rejected`, or
+`lq_request_failed`.
 
 Provider options:
 
@@ -203,6 +206,9 @@ is `$50` per debater per calendar month.
 If a request would exceed the cap, the Worker returns a normal LQ response explaining that the bot
 is paused. No model call is made.
 
+If a request would exceed the configured context budget, the Worker returns a normal LQ response
+explaining the limitation. No model call is made.
+
 If a model call fails, the reservation is refunded. If the provider reports token
 usage, the ledger commits actual usage. Otherwise it falls back to a conservative
 character-based estimate.
@@ -214,7 +220,9 @@ The production ledger uses a Cloudflare Durable Object.
 - Bearer auth is required.
 - Only SHA-256 token hashes are stored.
 - Bodies over 100 KB are rejected.
+- Odd-but-parseable request fields are normalized instead of causing avoidable 400s.
 - Prompt content is treated as untrusted debate data.
+- Context-window overflows and provider timeouts return a valid `{ text }` response.
 - Persona markdown is compiled into the Worker; runtime code does not read local files.
 - Canary leakage blocks output.
 - Secret-shaped output is blocked.

@@ -4,8 +4,8 @@ import { runOpenAiCompatible } from "./openai-compatible";
 import type { ModelResult } from "./types";
 import { runVercelAiGateway } from "./vercel-ai-gateway";
 
-const DEFAULT_MODEL_TIMEOUT_MS = 285_000;
-const MAX_MODEL_TIMEOUT_MS = 300_000;
+const DEFAULT_MODEL_TIMEOUT_MS = 270_000;
+const MAX_MODEL_TIMEOUT_MS = 285_000;
 
 export async function runConfiguredModel(
   env: Env,
