@@ -101,36 +101,57 @@ memory.
 ## Observability
 
 Cloudflare Worker Logs are the first-class diagnostic store. This repo does not create a separate
-KV request-log database by default because failed LQ submissions can contain untrusted debate
-content. Persisting raw payloads would increase privacy and exfiltration risk.
+KV request-log database by default. The deployed LQ Council debates are public, so production can
+log accepted prompt/context payloads and model outputs directly to Workers Logs while continuing to
+exclude bearer tokens and provider secrets.
 
-The Worker logs sanitized structured events:
+The Worker logs structured events:
 
+- `lq_request_accepted` for authorized, schema-valid LQ requests.
+- `lq_model_input_prepared` for the constructed provider system/user messages.
 - `lq_request_completed` for successful model responses, including response keys and text length.
+- `lq_provider_attempt_started` when a provider attempt begins.
+- `lq_provider_empty_response` when Workers AI returns no extractable text, including retry status.
+- `lq_provider_attempt_completed` when a provider attempt returns text.
+- `lq_provider_attempt_failed` when a provider attempt throws before returning a response.
 - `lq_context_budget_exceeded` when the context budget blocks a model call.
 - `lq_request_rejected` for auth, routing, size, JSON, and schema failures.
 - `lq_request_failed` for provider, ledger, or unexpected runtime failures. Provider failures are
-  returned to LQ as `{ text }`; ledger and unexpected failures remain HTTP errors.
+  returned to LQ as `{ text, diagnostic }`; ledger and unexpected failures remain HTTP errors.
 - `lq_spend_cap_reached` when the monthly budget blocks a model call.
 
-Request diagnostics include metadata and shape only: request ID, path, debater slug, status,
-elapsed time, content type, content length, JSON keys, field types, prompt length, context length,
-body SHA-256, short session-ID hash, and Zod issue paths/codes. They do not include bearer tokens,
-raw prompts, context, responses, raw session IDs, or provider secrets.
+Request diagnostics include request ID, path, debater slug, status, elapsed time, content type,
+content length, JSON keys, field types, prompt length, context length, body SHA-256, short
+session-ID hash, and Zod issue paths/codes where available. When `LOG_PUBLIC_DEBATE_PAYLOADS=true`,
+accepted request logs include the parsed public LQ payload and completion logs include successful
+model text. The model-input event also includes the constructed provider messages with the
+per-request security marker redacted. Logs never include the raw `Authorization` header value, and
+provider error text is redacted for secret-shaped values before being logged or returned as
+diagnostics.
 
-Workers Logs persistence is explicitly enabled in `wrangler.jsonc`:
+Workers Logs persistence and Workers Traces are explicitly enabled in `wrangler.jsonc`:
 
 ```jsonc
 {
   "observability": {
     "enabled": true,
-    "head_sampling_rate": 1
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+      "persist": true,
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    }
   }
 }
 ```
 
-Full sampling is appropriate for the expected LQ workload. Lower `head_sampling_rate` if you adapt
-the template to high-volume traffic.
+Full log and trace sampling is appropriate for the expected LQ workload. Lower each
+`head_sampling_rate` if you adapt the template to high-volume traffic.
 
 Live logs:
 
@@ -139,5 +160,6 @@ pnpm exec wrangler tail lq-debate-agent
 ```
 
 For persisted history, open Workers Logs in the Cloudflare dashboard and use Query Builder to filter
-by `lq_request_completed`, `lq_context_budget_exceeded`, `lq_request_rejected`,
-`lq_request_failed`, `request.agentId`, `status`, or `diagnostic.stage`.
+by `lq_request_accepted`, `lq_model_input_prepared`, `lq_request_completed`,
+`lq_provider_empty_response`, `lq_request_failed`, `request.agentId`, `provider.model`, `status`,
+or `diagnostic.stage`.

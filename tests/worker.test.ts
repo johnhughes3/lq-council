@@ -281,7 +281,11 @@ describe("worker", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      text: expect.stringContaining("provider-failure notice"),
+      text: expect.stringContaining("Reason: provider down"),
+      diagnostic: {
+        kind: "provider_error",
+        detail: "provider down",
+      },
     });
     const status = await sharedInMemoryLedger.status("scalia", currentMonth(), 50);
     expect(status.committedUsd).toBe(0);
@@ -308,10 +312,72 @@ describe("worker", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       text: expect.stringContaining("timeout notice"),
+      diagnostic: {
+        kind: "provider_error",
+        detail: "status 504; Provider timed out after 1 ms",
+        status: 504,
+      },
     });
     const status = await sharedInMemoryLedger.status("scalia", currentMonth(), 50);
     expect(status.committedUsd).toBe(0);
     expect(status.reservedUsd).toBe(0);
+  });
+
+  it("logs public accepted inputs and outputs when enabled", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const env = await testEnv(
+      "token",
+      async () => ({
+        response: "Public answer.",
+        usage: { prompt_tokens: 100, completion_tokens: 50 },
+      }),
+      { LOG_PUBLIC_DEBATE_PAYLOADS: "true" },
+    );
+
+    const response = await app.fetch(
+      new Request("https://local/agents/scalia/debate", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(
+          lqBody({
+            prompt: "Public prompt.",
+            session_id: "public-session",
+            context: [{ agent: "alpha", response: "Public prior answer." }],
+          }),
+        ),
+      }),
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    expect(log).toHaveBeenCalledWith(
+      "lq_request_accepted",
+      expect.objectContaining({
+        input: expect.objectContaining({
+          payload: expect.objectContaining({
+            prompt: "Public prompt.",
+            session_id: "public-session",
+            context: [{ agent: "alpha", response: "Public prior answer." }],
+          }),
+        }),
+      }),
+    );
+    expect(log).toHaveBeenCalledWith(
+      "lq_request_completed",
+      expect.objectContaining({
+        response: expect.objectContaining({
+          text: "Public answer.",
+        }),
+      }),
+    );
+    expect(JSON.stringify(log.mock.calls)).not.toContain("Bearer token");
+    expect(JSON.stringify(log.mock.calls)).toContain("Public prompt.");
+    expect(JSON.stringify(log.mock.calls)).toContain("Public prior answer.");
+    expect(JSON.stringify(log.mock.calls)).toContain("[redacted-security-marker]");
+    expect(JSON.stringify(log.mock.calls)).not.toContain("CANARY_");
   });
 
   it("blocks canary leakage in model output", async () => {

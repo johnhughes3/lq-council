@@ -57,6 +57,32 @@ describe("providers", () => {
     ).rejects.toThrow("empty response");
   });
 
+  it("retries one empty Cloudflare Workers AI response", async () => {
+    const events: unknown[] = [];
+    const run = vi
+      .fn()
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ response: "retry answer" });
+
+    const result = await runCloudflareWorkersAi({
+      env: { AI: { run } as unknown as Ai },
+      model: "@cf/moonshotai/kimi-k2.6",
+      messages,
+      maxOutputTokens: 100,
+      timeoutMs: 1000,
+      onProviderEvent: (event) => events.push(event),
+    });
+
+    expect(result.text).toBe("retry answer");
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "empty_response", attempt: 1, willRetry: true }),
+        expect.objectContaining({ type: "attempt_completed", attempt: 2, textChars: 12 }),
+      ]),
+    );
+  });
+
   it("extracts Cloudflare Workers AI fallback response shapes and usage fields", async () => {
     const run = vi
       .fn()

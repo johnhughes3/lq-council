@@ -16,10 +16,14 @@ import {
 import {
   buildRequestLogContext,
   logContextBudgetExceeded,
+  logModelInputPrepared,
+  logProviderEvent,
+  logRequestAccepted,
   logRequestCompleted,
   logRequestFailed,
   logRequestRejected,
   logSpendCapReached,
+  publicDebatePayloadLoggingEnabled,
   type RequestLogContext,
   withAgentId,
 } from "./observability/logging";
@@ -90,9 +94,19 @@ async function handleAgentRequest(
     }
 
     const body = await readLqRequest(request, agent.security.maxBodyBytes);
+    const logPublicPayloads = publicDebatePayloadLoggingEnabled(env);
+    logRequestAccepted(logContext, elapsedMs(startedAt), agent, body, logPublicPayloads);
     const canary = createCanary();
     const debatePrompt = formatDebatePrompt(body);
     const messages = buildDebateMessages(agent, debatePrompt, canary);
+    logModelInputPrepared(
+      logContext,
+      elapsedMs(startedAt),
+      agent,
+      messages,
+      logPublicPayloads,
+      canary,
+    );
     const inputText = `${messages.system}\n\n${messages.user}`;
     const contextBudget = checkContextBudget(env, agent, inputText);
     if (!contextBudget.ok) {
@@ -135,7 +149,10 @@ async function handleAgentRequest(
     }
 
     try {
-      const result = await runConfiguredModel(env, agent, messages);
+      const result = await runConfiguredModel(env, agent, messages, {
+        logPublicPayloads,
+        onProviderEvent: (event) => logProviderEvent(logContext, event),
+      });
       const filtered = filterModelOutput(result.text, canary);
       const actualEstimate =
         result.usage?.inputTokens !== undefined && result.usage.outputTokens !== undefined
@@ -155,7 +172,12 @@ async function handleAgentRequest(
       });
 
       const response = buildLqResponse(body, filtered.text);
-      logRequestCompleted(logContext, elapsedMs(startedAt), response.text.length);
+      logRequestCompleted(
+        logContext,
+        elapsedMs(startedAt),
+        response.text.length,
+        logPublicPayloads ? response.text : undefined,
+      );
       return Response.json(response);
     } catch (error) {
       await ledger.refund({ agentId: agent.id, requestId, month });
@@ -177,7 +199,8 @@ function errorResponse(error: unknown, logContext: RequestLogContext, elapsedMs:
   }
   if (error instanceof ProviderError) {
     logRequestFailed(logContext, 200, error, elapsedMs);
-    return Response.json({ text: providerFallbackText(error) });
+    const diagnostic = providerFailureDiagnostic(error);
+    return Response.json({ text: providerFallbackText(error, diagnostic.detail), diagnostic });
   }
   if (error instanceof CostLedgerUnavailableError) {
     logRequestFailed(logContext, 503, error, elapsedMs);
@@ -188,12 +211,48 @@ function errorResponse(error: unknown, logContext: RequestLogContext, elapsedMs:
   return Response.json({ error: "internal_error" }, { status: 500 });
 }
 
-function providerFallbackText(error: ProviderError): string {
+interface ProviderFailureDiagnostic {
+  kind: "provider_error";
+  detail: string;
+  status?: number;
+}
+
+function providerFallbackText(error: ProviderError, detail = publicProviderReason(error)): string {
   if (error.status === 504) {
-    return "I could not complete the model call before my safety deadline for this round. I am returning this explicit timeout notice so the debate transcript remains well-formed rather than failing the LQ request.";
+    return `I could not complete the model call before my safety deadline for this round. Reason: ${detail}. I am returning this explicit timeout notice so the debate transcript remains well-formed rather than failing the LQ request.`;
   }
 
-  return "I could not complete the upstream model call for this round. I am returning this explicit provider-failure notice so the debate transcript remains well-formed rather than failing the LQ request.";
+  return `I could not complete the upstream model call for this round. Reason: ${detail}. I am returning this explicit provider-failure notice so the debate transcript remains well-formed rather than failing the LQ request.`;
+}
+
+function providerFailureDiagnostic(error: ProviderError): ProviderFailureDiagnostic {
+  const detail = publicProviderReason(error);
+  if (error.status !== undefined) {
+    return { kind: "provider_error", detail, status: error.status };
+  }
+  return { kind: "provider_error", detail };
+}
+
+function publicProviderReason(error: ProviderError): string {
+  const statusPrefix = error.status !== undefined ? `status ${error.status}; ` : "";
+  const message = error.message.trim() || "provider failed without a detailed message";
+  return truncateProviderReason(`${statusPrefix}${redactSecretLikeValues(message)}`, 240);
+}
+
+function redactSecretLikeValues(value: string): string {
+  return value
+    .replace(/Bearer\s+[A-Za-z0-9._~+/-]+=*/gi, "Bearer [redacted]")
+    .replace(/sk-[A-Za-z0-9_-]{20,}/g, "sk-[redacted]")
+    .replace(/xox[baprs]-[A-Za-z0-9-]{20,}/g, "xox[redacted]")
+    .replace(/gh[pousr]_[A-Za-z0-9_]{20,}/g, "gh[redacted]")
+    .replace(/AKIA[0-9A-Z]{16}/g, "AKIA[redacted]")
+    .replace(/lqbot_[A-Za-z0-9_-]{32,}/g, "lqbot_[redacted]");
+}
+
+function truncateProviderReason(value: string, maxLength: number): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength)}...`;
 }
 
 function elapsedMs(startedAt: number): number {

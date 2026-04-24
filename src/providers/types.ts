@@ -1,4 +1,44 @@
-import type { DebateMessages, Env } from "../types";
+import type { DebateMessages, Env, ProviderName } from "../types";
+
+export type ProviderEvent =
+  | ProviderAttemptStartedEvent
+  | ProviderAttemptCompletedEvent
+  | ProviderEmptyResponseEvent
+  | ProviderAttemptFailedEvent;
+
+interface ProviderEventBase {
+  provider: ProviderName;
+  model: string;
+  attempt: number;
+  maxAttempts: number;
+  totalTimeoutMs: number;
+  attemptTimeoutMs: number;
+}
+
+interface ProviderAttemptStartedEvent extends ProviderEventBase {
+  type: "attempt_started";
+  maxOutputTokens: number;
+}
+
+interface ProviderAttemptCompletedEvent extends ProviderEventBase {
+  type: "attempt_completed";
+  textChars: number;
+  usage?: ModelUsage;
+  responseShape?: Record<string, unknown>;
+}
+
+interface ProviderEmptyResponseEvent extends ProviderEventBase {
+  type: "empty_response";
+  willRetry: boolean;
+  responseShape?: Record<string, unknown>;
+  response?: unknown;
+}
+
+interface ProviderAttemptFailedEvent extends ProviderEventBase {
+  type: "attempt_failed";
+  willRetry: boolean;
+  error: unknown;
+}
 
 export interface ModelRequest {
   env: Env;
@@ -6,6 +46,8 @@ export interface ModelRequest {
   messages: DebateMessages;
   maxOutputTokens: number;
   timeoutMs: number;
+  logPublicPayloads?: boolean;
+  onProviderEvent?: (event: ProviderEvent) => void;
 }
 
 export interface ModelUsage {

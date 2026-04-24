@@ -14,11 +14,22 @@ describe("deployment config", () => {
     expect(wrangler.observability).toEqual({
       enabled: true,
       head_sampling_rate: 1,
+      logs: {
+        enabled: true,
+        invocation_logs: true,
+        persist: true,
+        head_sampling_rate: 1,
+      },
+      traces: {
+        enabled: true,
+        head_sampling_rate: 1,
+      },
     });
     expect(wrangler.vars).toEqual(
       expect.objectContaining({
         MODEL_CONTEXT_TOKENS: "262144",
         MODEL_TIMEOUT_MS: "270000",
+        LOG_PUBLIC_DEBATE_PAYLOADS: "true",
       }),
     );
   });

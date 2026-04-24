@@ -65,13 +65,18 @@ Use Cloudflare observability first instead of adding an application request-log 
 pnpm exec wrangler tail lq-debate-agent
 ```
 
-The Worker emits sanitized structured logs for `lq_request_completed`,
-`lq_context_budget_exceeded`, `lq_request_rejected`, `lq_request_failed`, and
-`lq_spend_cap_reached`. These include request shape, JSON keys, field types, body hash, schema issue
-paths/codes, response keys, text length, context-budget numbers, and route metadata, but never raw
-prompts, context, responses, bearer tokens, or raw session IDs. Workers Logs persistence is enabled
-in `wrangler.jsonc` with full head sampling; use the Cloudflare dashboard Query Builder for retained
-logs.
+The Worker emits structured logs for `lq_request_accepted`, `lq_model_input_prepared`,
+`lq_request_completed`, `lq_provider_attempt_started`, `lq_provider_empty_response`,
+`lq_provider_attempt_completed`, `lq_provider_attempt_failed`, `lq_context_budget_exceeded`,
+`lq_request_rejected`, `lq_request_failed`, and `lq_spend_cap_reached`. These include request
+shape, JSON keys, field types, body hash, schema issue paths/codes, response keys, text length,
+provider attempts, context-budget numbers, and route metadata. Production sets
+`LOG_PUBLIC_DEBATE_PAYLOADS=true` because LQ debates are public, so accepted request logs include
+parsed public prompts/context, model-input logs include constructed provider messages with the
+per-request security marker redacted, and completion logs include successful model text. Logs still
+never include bearer tokens, provider secrets, or raw authorization values. Workers Logs persistence
+and Workers Traces are enabled in `wrangler.jsonc` with full head sampling; use the Cloudflare
+dashboard Query Builder for retained logs and trace timelines.
 
 ## Safety
 

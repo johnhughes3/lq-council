@@ -1,7 +1,7 @@
 import type { AgentDefinition, DebateMessages, Env } from "../types";
 import { runCloudflareWorkersAi } from "./cloudflare-workers-ai";
 import { runOpenAiCompatible } from "./openai-compatible";
-import type { ModelResult } from "./types";
+import type { ModelResult, ProviderEvent } from "./types";
 import { runVercelAiGateway } from "./vercel-ai-gateway";
 
 const DEFAULT_MODEL_TIMEOUT_MS = 270_000;
@@ -11,6 +11,10 @@ export async function runConfiguredModel(
   env: Env,
   agent: AgentDefinition,
   messages: DebateMessages,
+  options: {
+    logPublicPayloads?: boolean;
+    onProviderEvent?: (event: ProviderEvent) => void;
+  } = {},
 ): Promise<ModelResult> {
   const request = {
     env,
@@ -18,6 +22,10 @@ export async function runConfiguredModel(
     messages,
     maxOutputTokens: agent.maxOutputTokens,
     timeoutMs: modelTimeoutMs(env),
+    ...(options.logPublicPayloads !== undefined
+      ? { logPublicPayloads: options.logPublicPayloads }
+      : {}),
+    ...(options.onProviderEvent ? { onProviderEvent: options.onProviderEvent } : {}),
   };
 
   switch (agent.provider) {

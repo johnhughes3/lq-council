@@ -33,6 +33,7 @@ export interface Env {
   MAX_BODY_BYTES?: string;
   MODEL_CONTEXT_TOKENS?: string;
   MODEL_TIMEOUT_MS?: string;
+  LOG_PUBLIC_DEBATE_PAYLOADS?: string;
   ENVIRONMENT?: string;
   OPENAI_BASE_URL?: string;
   OPENAI_API_KEY?: string;

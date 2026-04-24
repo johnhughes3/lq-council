@@ -143,15 +143,23 @@ Cloudflare defaults are in [wrangler.jsonc](wrangler.jsonc):
 | `MAX_BODY_BYTES` | `100000` | Max incoming request body |
 | `MODEL_CONTEXT_TOKENS` | `262144` | Conservative model context-window guard |
 | `MODEL_TIMEOUT_MS` | `270000` | Max model-call time before refunding the reservation |
+| `LOG_PUBLIC_DEBATE_PAYLOADS` | `true` | Log public LQ prompt/context and model output in Workers Logs |
 
 ## Observability
 
 Use Cloudflare Worker Logs and Query Builder as the primary request diagnostic store. The Worker
-emits structured events for accepted, rejected, budget-blocked, and provider-fallback requests:
+emits structured events for accepted, rejected, budget-blocked, provider-attempt, and
+provider-fallback requests:
 
 ```txt
+lq_request_accepted
+lq_model_input_prepared
 lq_request_completed
 lq_context_budget_exceeded
+lq_provider_attempt_started
+lq_provider_empty_response
+lq_provider_attempt_completed
+lq_provider_attempt_failed
 lq_request_rejected
 lq_request_failed
 lq_spend_cap_reached
@@ -159,11 +167,15 @@ lq_spend_cap_reached
 
 These events include request ID, route path, debater slug, status, elapsed time, content type,
 content length, JSON keys, field types, prompt length, context length, body hash, and schema issue
-paths/codes where available. They deliberately omit the `Authorization` value and raw prompt,
-context, response, and session ID. The session ID is logged only as a short SHA-256 hash prefix.
+paths/codes where available. Because LQ debates are public, production enables
+`LOG_PUBLIC_DEBATE_PAYLOADS=true`, which logs accepted LQ request payloads and successful model text.
+It also logs the constructed provider system/user messages with the per-request security marker
+redacted. The Worker still deliberately omits the `Authorization` value and redacts secret-shaped
+error text. Rejected malformed requests remain shape-only by default.
 
-Workers Logs persistence is enabled in `wrangler.jsonc` with full head sampling because the expected
-traffic is low. Cloudflare currently retains Workers Logs for a limited window depending on plan.
+Workers Logs persistence and Workers Traces are enabled in `wrangler.jsonc` with full head sampling
+because the expected traffic is low. Cloudflare currently retains observability data for a limited
+window depending on plan.
 
 For a live deployment:
 
@@ -172,8 +184,8 @@ pnpm exec wrangler tail lq-debate-agent
 ```
 
 For durable history, enable Workers Logs in the Cloudflare dashboard and query for
-`lq_request_completed`, `lq_context_budget_exceeded`, `lq_request_rejected`, or
-`lq_request_failed`.
+`lq_request_accepted`, `lq_model_input_prepared`, `lq_request_completed`,
+`lq_provider_empty_response`, `lq_request_failed`, `request.agentId`, or `provider.model`.
 
 Provider options:
 
