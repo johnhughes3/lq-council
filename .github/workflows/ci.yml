@@ -153,7 +153,7 @@ jobs:
         run: go run github.com/zricethezav/gitleaks/v8@latest detect --source . --redact --no-banner
       - name: Dependency review
         if: github.event_name == 'pull_request'
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
 
   gate:
     name: CI Gate
