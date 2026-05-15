@@ -87,12 +87,12 @@
     "@biomejs/biome": "^2.4.13",
     "@cloudflare/workers-types": "^4.20260424.1",
     "@types/node": "^25.6.0",
-    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/coverage-v8": "^4.1.6",
     "lefthook": "^2.1.6",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
-    "vitest": "^3.2.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6",
     "wrangler": "^4.84.1"
   },
   "engines": {
