@@ -29,6 +29,16 @@ describe("cost estimates", () => {
     expect(reserved.estimatedUsd).toBeGreaterThan(actual.estimatedUsd);
   });
 
+  it("charges the minimum output estimate when no output text is available", () => {
+    const actual = estimateActualCost({
+      model: "@cf/moonshotai/kimi-k2.6",
+      inputText: "prompt",
+      maxOutputTokens: 1000,
+    });
+
+    expect(actual.outputTokens).toBe(1);
+  });
+
   it("falls back for unknown models", () => {
     expect(getPricing("unknown/model").outputUsdPerMillion).toBe(5);
   });
