@@ -11,7 +11,7 @@ import {
 describe("terminal rendering", () => {
   it("uses styled output only for interactive human terminals", () => {
     expect(
-      shouldUseTui(terminalOptions({ json: false, stdout: { isTTY: true, columns: 80 } })),
+      shouldUseTui(terminalOptions({ json: false, stdout: { isTTY: true, columns: 80 }, env: {} })),
     ).toBe(true);
     expect(
       shouldUseTui(terminalOptions({ json: true, stdout: { isTTY: true, columns: 80 } })),
@@ -110,7 +110,7 @@ describe("terminal rendering", () => {
       {
         ok: false,
         checks: [],
-        agents: ["scalia"],
+        agents: ["scalia", {}],
         metadata: { nullValue: null, missing: undefined, enabled: true, nested: { x: 1 } },
         emptyObject: {},
       },
@@ -120,10 +120,15 @@ describe("terminal rendering", () => {
     expect(output).toContain("Checks: (none)");
     expect(output).toContain("Ok: false");
     expect(output).toContain("1. scalia");
+    expect(output).toContain("2. {}");
     expect(output).toContain("Null Value: null");
     expect(output).toContain("Missing: undefined");
     expect(output).toContain('Nested: {"x":1}');
     expect(output).toContain("Empty Object:");
+  });
+
+  it("renders scalar values in stable plain mode", () => {
+    expect(renderHumanOutput("plain", terminalOptions({ json: false, plain: true }))).toBe("plain");
   });
 
   it("renders help and status panels without color when NO_COLOR is set", () => {
@@ -144,7 +149,7 @@ describe("terminal rendering", () => {
     expect(
       renderStep(
         "Deploying Worker",
-        terminalOptions({ json: false, stdout: { isTTY: true, columns: 80 } }),
+        terminalOptions({ json: false, stdout: { isTTY: true, columns: 80 }, env: {} }),
       ),
     ).toContain("Deploying Worker");
     expect(

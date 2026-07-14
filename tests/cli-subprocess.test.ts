@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { chmod, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -75,6 +75,20 @@ describe("lqbot executable", () => {
       stat(path.join(target, ".github", "workflows", "ci-ai.yml")),
     ).rejects.toMatchObject({ code: "ENOENT" });
     await expect(stat(path.join(target, "vercel.json"))).rejects.toMatchObject({ code: "ENOENT" });
+
+    const templatePackage = JSON.parse(await readFile(path.join(cwd, "package.json"), "utf8")) as {
+      packageManager: string;
+      dependencies: Record<string, string>;
+      devDependencies: Record<string, string>;
+      engines: Record<string, string>;
+    };
+    const scaffoldPackage = JSON.parse(await readFile(path.join(target, "package.json"), "utf8"));
+    expect(scaffoldPackage).toMatchObject({
+      packageManager: templatePackage.packageManager,
+      dependencies: templatePackage.dependencies,
+      devDependencies: templatePackage.devDependencies,
+      engines: templatePackage.engines,
+    });
   });
 });
 

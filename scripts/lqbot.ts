@@ -758,12 +758,20 @@ async function exists(filePath: string): Promise<boolean> {
 
 async function writeProjectPackageJson(target: string): Promise<string> {
   const projectName = projectNameFromTarget(target);
+  const templatePackageJson = JSON.parse(
+    await readFile(path.join(packageRoot(), "package.json"), "utf8"),
+  ) as {
+    packageManager: string;
+    dependencies: Record<string, string>;
+    devDependencies: Record<string, string>;
+    engines: Record<string, string>;
+  };
   const projectPackageJson = {
     name: projectName,
     version: "0.1.0",
     private: true,
     type: "module",
-    packageManager: "pnpm@10.33.2",
+    packageManager: templatePackageJson.packageManager,
     scripts: {
       lqbot: "tsx scripts/lqbot.ts",
       "generate:agents": "tsx scripts/lqbot.ts generate",
@@ -789,26 +797,9 @@ async function writeProjectPackageJson(target: string): Promise<string> {
       "security:secrets":
         "go run github.com/zricethezav/gitleaks/v8@latest detect --source . --no-git --redact",
     },
-    dependencies: {
-      hono: "^4.12.14",
-      zod: "^4.3.6",
-    },
-    devDependencies: {
-      "@biomejs/biome": "^2.4.13",
-      "@cloudflare/workers-types": "^4.20260424.1",
-      "@types/node": "^25.6.0",
-      "@vitest/coverage-v8": "^3.2.4",
-      lefthook: "^2.1.6",
-      tsup: "^8.5.1",
-      tsx: "^4.21.0",
-      typescript: "^5.9.3",
-      vitest: "^3.2.4",
-      wrangler: "^4.84.1",
-    },
-    engines: {
-      node: ">=20.11.0",
-      pnpm: ">=9.0.0",
-    },
+    dependencies: templatePackageJson.dependencies,
+    devDependencies: templatePackageJson.devDependencies,
+    engines: templatePackageJson.engines,
   };
 
   await writeFile(

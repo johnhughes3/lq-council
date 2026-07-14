@@ -44,7 +44,7 @@ Only the token hash is stored remotely.
 
 ## Requirements
 
-- Node.js 20.11 or newer
+- Node.js 22.12 or newer
 - pnpm 9 or newer
 - Cloudflare account with Workers enabled
 - Go, only for the local `pnpm security:secrets` Gitleaks wrapper

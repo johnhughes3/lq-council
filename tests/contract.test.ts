@@ -84,6 +84,41 @@ describe("LQ contract", () => {
     expect(fallback.role).toBe("proponent");
     expect(fallback.context).toEqual([]);
     expect(fallback.prompt).toContain("No prompt text was provided");
+
+    const nonStringFields = await readLqRequest(
+      new Request("https://local/agents/scalia/debate", {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: true,
+          round: 2,
+          role: 3,
+          context: null,
+          prompt: null,
+        }),
+      }),
+      1000,
+    );
+
+    expect(nonStringFields.session_id).toBe("true");
+    expect(nonStringFields.role).toBe("proponent");
+    expect(nonStringFields.context).toEqual([]);
+    expect(nonStringFields.prompt).toContain("No prompt text was provided");
+
+    const complexFields = await readLqRequest(
+      new Request("https://local/agents/scalia/debate", {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: { nested: true },
+          context: "earlier answer",
+          prompt: ["answer", "this"],
+        }),
+      }),
+      1000,
+    );
+
+    expect(complexFields.session_id).toBe("unknown-session");
+    expect(complexFields.context).toEqual(["earlier answer"]);
+    expect(complexFields.prompt).toBe('["answer","this"]');
   });
 
   it("rejects wrong methods, invalid JSON, oversized prompts, and oversized bodies", async () => {
@@ -194,6 +229,29 @@ describe("LQ contract", () => {
       expect(JSON.stringify(diagnostic)).not.toContain("session-secret");
       expect(JSON.stringify(diagnostic)).not.toContain("do not log this value");
     }
+  });
+
+  it.each([
+    [null, "null"],
+    [[], "array"],
+    ["scalar", "string"],
+  ])("diagnoses non-object JSON bodies without echoing their values", async (body, jsonType) => {
+    await expect(
+      readLqRequest(
+        new Request("https://local/agents/scalia/debate", {
+          method: "POST",
+          body: JSON.stringify(body),
+        }),
+        1000,
+      ),
+    ).rejects.toMatchObject({
+      status: 400,
+      diagnostic: {
+        stage: "schema",
+        jsonType,
+        issues: [{ path: "(root)", code: "invalid_type" }],
+      },
+    });
   });
 
   it("formats LQ metadata and untrusted context into the model prompt", async () => {
