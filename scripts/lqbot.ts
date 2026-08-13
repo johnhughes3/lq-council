@@ -588,7 +588,15 @@ function isProvider(value: string | undefined): value is ProviderName {
 }
 
 function generateToken(): string {
-  return `lqbot_${randomBytes(32).toString("base64url")}`;
+  return `lqbot_${bytesToBase64Url(randomBytes(32))}`;
+}
+
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
 
 async function readLocalTokenHashes(cwd: string): Promise<TokenHashMap> {
