@@ -1,4 +1,7 @@
 import type { Env } from "../types";
+import { sha256Hex } from "./hash";
+
+export { sha256Hex } from "./hash";
 
 const TOKEN_PREFIX = "Bearer ";
 
@@ -8,11 +11,6 @@ export function parseBearerToken(authorization: string | null): string | null {
   }
   const token = authorization.slice(TOKEN_PREFIX.length).trim();
   return token.length > 0 ? token : null;
-}
-
-export async function sha256Hex(input: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export function getTokenHashForAgent(env: Env, agentId: string): string | null {

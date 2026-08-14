@@ -1,26 +1,12 @@
-export type ProviderName = "cloudflare-workers-ai" | "vercel-ai-gateway" | "openai-compatible";
+export type {
+  AgentDefinition,
+  AgentSecurityConfig,
+  DebateMessages,
+  PersonaFile,
+  ProviderName,
+} from "./agent-types";
 
-export interface PersonaFile {
-  path: string;
-  content: string;
-}
-
-export interface AgentSecurityConfig {
-  maxBodyBytes: number;
-  allowRemoteMcp: boolean;
-  maxToolCallsPerRound: number;
-}
-
-export interface AgentDefinition {
-  id: string;
-  displayName: string;
-  provider: ProviderName;
-  model: string;
-  maxOutputTokens: number;
-  monthlyBudgetUsd: number;
-  files: PersonaFile[];
-  security: AgentSecurityConfig;
-}
+import type { ProviderName } from "./agent-types";
 
 export interface Env {
   AI?: Ai;
@@ -40,9 +26,4 @@ export interface Env {
   OPENAI_MODEL?: string;
   VERCEL_AI_GATEWAY_API_KEY?: string;
   AI_GATEWAY_API_KEY?: string;
-}
-
-export interface DebateMessages {
-  system: string;
-  user: string;
 }
