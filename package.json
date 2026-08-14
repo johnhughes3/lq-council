@@ -53,6 +53,7 @@
     "wrangler.jsonc",
     "biome.json",
     "tsconfig.json",
+    "tsconfig.scripts.json",
     "tsup.config.ts",
     "vitest.config.ts"
   ],
@@ -64,7 +65,7 @@
     "build": "tsup && node -e \"require('fs').chmodSync('dist/lqbot.js', 0o755)\"",
     "format": "biome check . --write",
     "lint": "biome check .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "test:contract": "vitest run tests/contract.test.ts",

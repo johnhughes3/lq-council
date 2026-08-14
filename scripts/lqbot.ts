@@ -5,6 +5,7 @@ import { constants as fsConstants } from "node:fs";
 import { access, cp, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { AgentDefinition, PersonaFile, ProviderName } from "../src/agent-types";
 import {
   renderError,
   renderHelp,
@@ -12,8 +13,7 @@ import {
   renderStep,
   terminalOptions,
 } from "../src/cli/terminal";
-import { sha256Hex } from "../src/security/auth";
-import type { AgentDefinition, PersonaFile, ProviderName } from "../src/types";
+import { sha256Hex } from "../src/security/hash";
 
 interface CliOptions {
   json: boolean;
@@ -151,6 +151,7 @@ async function initProject(ctx: CliContext, args: string[]): Promise<void> {
     "codecov.yml",
     "lefthook.yml",
     "tsconfig.json",
+    "tsconfig.scripts.json",
     "tsup.config.ts",
     "vitest.config.ts",
     "wrangler.jsonc",
@@ -588,15 +589,7 @@ function isProvider(value: string | undefined): value is ProviderName {
 }
 
 function generateToken(): string {
-  return `lqbot_${bytesToBase64Url(randomBytes(32))}`;
-}
-
-function bytesToBase64Url(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+  return `lqbot_${randomBytes(32).toString("base64url")}`;
 }
 
 async function readLocalTokenHashes(cwd: string): Promise<TokenHashMap> {
@@ -788,7 +781,7 @@ async function writeProjectPackageJson(target: string): Promise<string> {
       build: "tsup",
       format: "biome check . --write",
       lint: "biome check .",
-      typecheck: "tsc --noEmit",
+      typecheck: "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json",
       test: "vitest run --coverage",
       "test:watch": "vitest",
       "test:contract": "vitest run tests/contract.test.ts",

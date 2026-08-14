@@ -68,6 +68,7 @@ describe("lqbot executable", () => {
 
     await expect(stat(path.join(target, ".github", "workflows", "ci.yml"))).resolves.toBeTruthy();
     await expect(stat(path.join(target, "lefthook.yml"))).resolves.toBeTruthy();
+    await expect(stat(path.join(target, "tsconfig.scripts.json"))).resolves.toBeTruthy();
     await expect(
       stat(path.join(target, ".github", "workflows", "publish-npm.yml")),
     ).rejects.toMatchObject({ code: "ENOENT" });
@@ -82,7 +83,14 @@ describe("lqbot executable", () => {
       devDependencies: Record<string, string>;
       engines: Record<string, string>;
     };
-    const scaffoldPackage = JSON.parse(await readFile(path.join(target, "package.json"), "utf8"));
+    const scaffoldPackage = JSON.parse(
+      await readFile(path.join(target, "package.json"), "utf8"),
+    ) as {
+      scripts?: { typecheck?: string };
+    };
+    expect(scaffoldPackage.scripts?.typecheck).toBe(
+      "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json",
+    );
     expect(scaffoldPackage).toMatchObject({
       packageManager: templatePackage.packageManager,
       dependencies: templatePackage.dependencies,
