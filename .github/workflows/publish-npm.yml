@@ -24,7 +24,7 @@ env:
 jobs:
   preflight:
     name: Publish Preflight
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -69,7 +69,7 @@ jobs:
   publish:
     name: Build, Verify, and Publish
     needs: preflight
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 20
     environment: npm
     permissions:
