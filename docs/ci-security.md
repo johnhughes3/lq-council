@@ -9,25 +9,14 @@ repository secrets, and the workflow does not need Cloudflare, npm, Codex, or Cl
 
 Do not change CI to use `pull_request_target` with checkout/build/test of untrusted PR code.
 
-## Secret-Bearing Workflows
+## AI Code Review
 
-`ci-ai.yml` is intentionally guarded:
+AI code review no longer runs in CI. The `ci-ai.yml` workflow that invoked Codex and Claude on
+labelled pull requests has been retired; those reviews are reached through other channels instead.
 
-- it only runs when repository variable `ENABLE_AI_CI` is set to `true`
-- it only runs on same-repository PR branches
-- it only runs when a maintainer applies `codex-review` or `claude-review`
-- it skips forks even if a label is applied
-- it has no Cloudflare or npm publishing secrets
-- it is non-gating review automation
-- it runs in the `ai-review` environment, so OAuth secrets can be environment-scoped and
-  protected by required reviewers
-- Claude review is limited to GitHub PR/diff/status commands; it does not run package scripts
-  while the Claude OAuth token is present
-
-This avoids exposing Codex or Claude OAuth secrets to untrusted fork code.
-
-Recommended setup: store `CODEX_AUTH_JSON` and `CLAUDE_CODE_OAUTH_TOKEN` as `ai-review`
-environment secrets, not repository-wide secrets, and add required reviewers to that environment.
+No workflow in this repo carries Codex or Claude credentials, so there is no `CODEX_AUTH_JSON`,
+`CLAUDE_CODE_OAUTH_TOKEN`, `ENABLE_AI_CI`, or `ai-review` environment to configure. Do not
+reintroduce AI review as a CI workflow without revisiting the fork-safety analysis above.
 
 ## Publishing
 
