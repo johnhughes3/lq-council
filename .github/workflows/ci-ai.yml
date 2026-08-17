@@ -24,7 +24,7 @@ jobs:
       github.event.action == 'labeled' &&
       github.event.label.name == 'codex-review' &&
       !github.event.pull_request.draft
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 20
     environment: ai-review
     permissions:
@@ -99,7 +99,7 @@ jobs:
       github.event.action == 'labeled' &&
       github.event.label.name == 'claude-review' &&
       !github.event.pull_request.draft
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 20
     environment: ai-review
     permissions:

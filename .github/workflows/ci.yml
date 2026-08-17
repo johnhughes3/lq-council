@@ -22,7 +22,7 @@ env:
 jobs:
   format:
     name: Format and Lint
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -38,7 +38,7 @@ jobs:
 
   typecheck:
     name: TypeScript Strict Typecheck
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -54,7 +54,7 @@ jobs:
 
   test:
     name: Tests and Coverage
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
       contents: read
@@ -87,7 +87,7 @@ jobs:
 
   build:
     name: Build and Pack
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -104,7 +104,7 @@ jobs:
 
   worker-startup:
     name: Cloudflare Worker Startup Check
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -120,7 +120,7 @@ jobs:
 
   workflow-lint:
     name: GitHub Actions Lint
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -131,7 +131,7 @@ jobs:
 
   security:
     name: Dependency and Secret Security
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -157,7 +157,7 @@ jobs:
 
   gate:
     name: CI Gate
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     needs:
       - format
