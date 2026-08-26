@@ -24,9 +24,8 @@ env:
 jobs:
   analyze:
     name: Analyze JavaScript/TypeScript
-    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
-    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
-    runs-on: ubuntu-latest
+    # Public johnhughes3 repos cannot see the private org CI_RUNNER variable, so CodeQL is pinned to ubicloud-standard-2.
+    runs-on: ubicloud-standard-2
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
