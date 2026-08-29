@@ -24,9 +24,8 @@ env:
 jobs:
   preflight:
     name: Publish Preflight
-    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
-    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
-    runs-on: ubuntu-latest
+    # Unset CI_RUNNER (Dependabot, public johnhughes3) falls back to ubicloud-standard-2.
+    runs-on: ${{ (vars.CI_RUNNER == 'ubuntu-latest' || startsWith(vars.CI_RUNNER, 'ubicloud-')) && vars.CI_RUNNER || 'ubicloud-standard-2' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -71,8 +70,7 @@ jobs:
   publish:
     name: Build, Verify, and Publish
     needs: preflight
-    # Public repo: GitHub-hosted Actions minutes are free here; ubicloud is paid.
-    # Deliberately NOT using vars.CI_RUNNER; do not "standardize" this back.
+    # Protected npm environment stays GitHub-hosted; do not move this job onto Ubicloud.
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: npm
