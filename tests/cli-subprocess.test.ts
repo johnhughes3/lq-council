@@ -68,6 +68,10 @@ describe("lqbot executable", () => {
 
     await expect(stat(path.join(target, ".github", "workflows", "ci.yml"))).resolves.toBeTruthy();
     await expect(stat(path.join(target, "lefthook.yml"))).resolves.toBeTruthy();
+    await expect(readFile(path.join(target, ".node-version"), "utf8")).resolves.toBe("24\n");
+    await expect(readFile(path.join(target, "pnpm-workspace.yaml"), "utf8")).resolves.toBe(
+      await readFile(path.join(cwd, "pnpm-workspace.yaml"), "utf8"),
+    );
     await expect(stat(path.join(target, "tsconfig.scripts.json"))).resolves.toBeTruthy();
     await expect(
       stat(path.join(target, ".github", "workflows", "publish-npm.yml")),

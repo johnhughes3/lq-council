@@ -44,8 +44,8 @@ Only the token hash is stored remotely.
 
 ## Requirements
 
-- Node.js 22.12 or newer
-- pnpm 9 or newer
+- Node.js 24
+- pnpm 11
 - Cloudflare account with Workers enabled
 - Go, only for the local `pnpm security:secrets` Gitleaks wrapper
 - Wrangler auth, either interactive or headless:
