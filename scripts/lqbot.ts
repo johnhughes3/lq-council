@@ -5,6 +5,7 @@ import { constants as fsConstants } from "node:fs";
 import { access, cp, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import packageMetadata from "../package.json" with { type: "json" };
 import type { AgentDefinition, PersonaFile, ProviderName } from "../src/agent-types";
 import {
   renderError,
@@ -764,7 +765,6 @@ async function writeProjectPackageJson(target: string): Promise<string> {
   const templatePackageJson = JSON.parse(
     await readFile(path.join(packageRoot(), "package.json"), "utf8"),
   ) as {
-    packageManager: string;
     dependencies: Record<string, string>;
     devDependencies: Record<string, string>;
     engines: Record<string, string>;
@@ -774,7 +774,9 @@ async function writeProjectPackageJson(target: string): Promise<string> {
     version: "0.1.0",
     private: true,
     type: "module",
-    packageManager: templatePackageJson.packageManager,
+    // pnpm strips packageManager from the manifest it writes into a packed tarball.
+    // Importing the source metadata lets tsup embed the pin in the published CLI.
+    packageManager: packageMetadata.packageManager,
     scripts: {
       lqbot: "tsx scripts/lqbot.ts",
       "generate:agents": "tsx scripts/lqbot.ts generate",
