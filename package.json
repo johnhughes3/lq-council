@@ -2,7 +2,7 @@
   "name": "@johnhughes/lq-council",
   "version": "0.1.0",
   "private": false,
-  "packageManager": "pnpm@10.33.2",
+  "packageManager": "pnpm@11.24.0",
   "type": "module",
   "description": "Secure Cloudflare Workers template for LQ Council debate agents.",
   "license": "MIT",
@@ -46,10 +46,12 @@
     "AGENTS.md",
     "README.md",
     "LICENSE",
+    ".node-version",
     ".env.example",
     ".gitignore",
     "codecov.yml",
     "lefthook.yml",
+    "pnpm-workspace.yaml",
     "wrangler.jsonc",
     "biome.json",
     "tsconfig.json",
@@ -81,29 +83,24 @@
     "security:secrets": "go run github.com/zricethezav/gitleaks/v8@latest detect --source . --no-git --redact"
   },
   "dependencies": {
-    "hono": "^4.13.1",
-    "zod": "^4.4.3"
+    "hono": "^4.13.5",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.8",
-    "@cloudflare/workers-types": "^5.20260813.1",
-    "@types/node": "^26.2.0",
-    "@vitest/coverage-v8": "^4.1.10",
-    "lefthook": "^2.1.10",
+    "@biomejs/biome": "^2.5.11",
+    "@cloudflare/workers-types": "^5.20260829.1",
+    "@types/node": "^24.13.3",
+    "@vitest/coverage-v8": "^4.1.11",
+    "lefthook": "^2.1.12",
     "tsup": "^8.5.1",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2",
-    "vite": "^8.2.1",
-    "vitest": "^4.1.10",
-    "wrangler": "^4.122.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "nanoid@3": "3.3.18"
-    }
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.127.1"
   },
   "engines": {
-    "node": ">=22.12.0",
-    "pnpm": ">=9.0.0"
+    "node": ">=24.0.0 <25",
+    "pnpm": ">=11.0.0 <12"
   }
 }

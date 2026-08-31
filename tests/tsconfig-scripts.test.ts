@@ -10,6 +10,7 @@ interface Tsconfig {
 
 interface PackageJson {
   files?: string[];
+  private?: boolean;
   scripts?: {
     typecheck?: string;
   };
@@ -33,7 +34,11 @@ describe("scripts TypeScript project", () => {
     expect(scripts.compilerOptions?.types).toEqual(["node"]);
     expect(scripts.compilerOptions?.types).not.toContain("@cloudflare/workers-types");
     expect(pkg.scripts?.typecheck).toBe("tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json");
-    expect(pkg.files).toContain("tsconfig.scripts.json");
+    if (pkg.private) {
+      await expect(readFile("tsconfig.scripts.json", "utf8")).resolves.toBe(scriptsRaw);
+    } else {
+      expect(pkg.files).toContain("tsconfig.scripts.json");
+    }
     expect(cliSource).toContain('randomBytes(32).toString("base64url")');
     expect(cliSource).not.toContain("bytesToBase64Url");
     expect(cliSource).not.toContain("../src/security/auth");
